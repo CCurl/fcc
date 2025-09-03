@@ -1,0 +1,17 @@
+var num
+var x
+
+: T4 x @ num @ = if 4 x +! then drop ;
+
+var x
+: Mil 1000 * 1000 * ;   // n -- m
+: CR 10 emit ;
+
+: main
+	1000 Mil x !
+	x @ .d
+	's' 'e' swap emit
+	x @ begin 1- while drop
+	emit CR
+	" - all done!" puts
+;
