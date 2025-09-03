@@ -138,7 +138,7 @@ int addFunction(char *name) {
 int genTargetSymbol() {
     static char name[8];
     static int seq = 0;
-    sprintf(name, ".t%d", ++seq);
+    sprintf(name, "Tgt%d", ++seq);
     return addVar(name, 'T');
 }
 
@@ -189,10 +189,6 @@ void optimizeIRL() {
     while (i <= here) {
         int op = opcodes[i];
         int a1 = arg1[i];
-        //if ((op == CALL) && (opcodes[i + 1] == RETURN)) {
-        //    opcodes[i] = JMP;
-        //    opcodes[i + 1] = NOTHING;
-        //}
         i++;
     }
 }
@@ -201,14 +197,13 @@ void genStartupCode() {
     printf("\ninit:\n\tLEA EBP, [rstk]\n\tRET\n");
 
     printf("\nRETtoEBP:    ; Move the return addr to the [EBP] stack");
-    printf("\n             ; NB: EDX is destroyed");
-    printf("\n\tPOP  EDX");
+    printf("\n\tPOP  EDX ; NB: EDX is destroyed");
     printf("\n\tADD  EBP, 4");
     printf("\n\tPOP  DWORD [EBP]");
     printf("\n\tPUSH EDX");
     printf("\n\tRET\n");
 
-    printf("\nRETfromEBP:  ; Perform a RET from the [EBP] stack");
+    printf("\nRETfromEBP:  ; Perform a return from the [EBP] stack");
     printf("\n\tPUSH DWORD [EBP]");
     printf("\n\tSUB  EBP, 4");
     printf("\n\tRET");
@@ -223,33 +218,33 @@ void genCode() {
         char *vn = varName(a1), *an = asmName(a1);
         switch (op) {
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
-            case VARADDR:  printf("\n\tPUSH EAX\n\tLEA EAX, [%s] ; %s", an, vn);
-            BCASE LIT:     printf("\n\tPUSH EAX\n\tMOV EAX,%d", a1);
+            case VARADDR:  printf("\n\tPUSH EAX\n\tLEA  EAX, [%s] ; %s", an, vn);
+            BCASE LIT:     printf("\n\tPUSH EAX\n\tMOV  EAX, %d", a1);
             BCASE DUP:     printf("\n\tPUSH EAX");
-            BCASE DROP:    printf("\n\tPOP EAX");
+            BCASE DROP:    printf("\n\tPOP  EAX");
             BCASE SWAP:    printf("\n\tXCHG EAX, [ESP]");
-            BCASE OVER:    printf("\n\tMOV EBX, [ESP]\n\tPUSH EAX\n\tMOV EAX,EBX");
-            BCASE LOADSTR: printf("\n\tPUSH EAX\n\tLEA EAX, [%s]", strings[a1].name);
-            BCASE STORE:   printf("\n\tPOP ECX\n\tMOV [EAX], ECX\n\tPOP EAX");
-            BCASE FETCH:   printf("\n\tMOV EAX, [EAX]");
-            BCASE PLEQ:    printf("\n\tPOP EBX\n\tADD [EAX], EBX\n\tPOP EAX");
-            BCASE DECTOS:  printf("\n\tDEC EAX");
-            BCASE INCTOS:  printf("\n\tINC EAX");
-            BCASE ADD:     printf("\n\tPOP EBX\n\tADD EAX, EBX");
-            BCASE SUB:     printf("\n\tPOP EBX\n\tXCHG EAX, EBX\n\tSUB EAX, EBX");
-            BCASE MULT:    printf("\n\tPOP EBX\n\tIMUL EAX, EBX");
-            BCASE DIVIDE:  printf("\n\tPOP EBX\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
-            BCASE LT:      printf("\n\tPOP EBX\n\tCMP EBX, EAX\n\tMOV EAX, 0\n\tJGE @F\n\tDEC EAX\n@@:");
-            BCASE GT:      printf("\n\tPOP EBX\n\tCMP EBX, EAX\n\tMOV EAX, 0\n\tJLE @F\n\tDEC EAX\n@@:");
-            BCASE EQ:      printf("\n\tPOP EBX\n\tCMP EBX, EAX\n\tMOV EAX, 0\n\tJNZ @F\n\tDEC EAX\n@@:");
-            BCASE NEQ:     printf("\n\tPOP EBX\n\tCMP EBX, EAX\n\tMOV EAX, 0\n\tJE  @F\n\tDEC EAX\n@@:");
+            BCASE OVER:    printf("\n\tPUSH EAX\n\tMOV  EAX, [ESP+4]");
+            BCASE LOADSTR: printf("\n\tPUSH EAX\n\tLEA  EAX, [%s]", strings[a1].name);
+            BCASE STORE:   printf("\n\tPOP  ECX\n\tMOV  [EAX], ECX\n\tPOP  EAX");
+            BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
+            BCASE PLEQ:    printf("\n\tPOP  EBX\n\tADD  [EAX], EBX\n\tPOP  EAX");
+            BCASE DECTOS:  printf("\n\tDEC  EAX");
+            BCASE INCTOS:  printf("\n\tINC  EAX");
+            BCASE ADD:     printf("\n\tPOP  EBX\n\tADD  EAX, EBX");
+            BCASE SUB:     printf("\n\tPOP  EBX\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
+            BCASE MULT:    printf("\n\tPOP  EBX\n\tIMUL EAX, EBX");
+            BCASE DIVIDE:  printf("\n\tPOP  EBX\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
+            BCASE LT:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
+            BCASE GT:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
+            BCASE EQ:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
+            BCASE NEQ:     printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
             BCASE DEF:     printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
             BCASE CALL:    printf("\n\tCALL %s ; %s", an, vn);
-            BCASE RETURN:  printf("\n\tJMP RETfromEBP");
+            BCASE RETURN:  printf("\n\tJMP  RETfromEBP");
             BCASE TARGET:  printf("\n%s:", vn);
-            BCASE JMP:     printf("\n\tJMP %s", vn);
-            BCASE JMPZ:    printf("\n\tTEST EAX, EAX\n\tJZ %s", vn);
-            BCASE JMPNZ:   printf("\n\tTEST EAX, EAX\n\tJNZ %s", vn);
+            BCASE JMP:     printf("\n\tJMP  %s", vn);
+            BCASE JMPZ:    printf("\n\tTEST EAX, EAX\n\tJZ   %s", vn);
+            BCASE JMPNZ:   printf("\n\tTEST EAX, EAX\n\tJNZ  %s", vn);
         }
         i++;
     }
@@ -310,31 +305,35 @@ void winLin(int seg) {
         printf("\n;================== library ==================");
         printf("\nstart:\n\tCALL init");
         printf("\n\tCALL %s ; main", asmName(findVar("main", 'F')));
-        printf("\n%s: ; bye", asmName(findVar("bye", 'F')));
-        printf("\n\tMOV EAX, 1");
-        printf("\n\tXOR EBX, EBX");
-        printf("\n\tINT 0x80");
+        printf("\n\n%s: ; bye", asmName(findVar("bye", 'F')));
+        printf("\n\tMOV  EAX, 1");
+        printf("\n\tXOR  EBX, EBX");
+        printf("\n\tINT  0x80");
 
         printf("\n\n%s: ; puts", asmName(findVar("puts", 'F')));
+        printf("\n\t; TODO: fill this in");
         printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tPOP EAX");
-        printf("\n\tJMP RETfromEBP");
+        printf("\n\tMOV  [%s], EAX", pv);
+        printf("\n\tPOP  EAX");
+        printf("\n\tJMP  RETfromEBP");
         
         printf("\n\n%s: ; emit", asmName(findVar("emit", 'F')));
         printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tMOV EAX, 4");
-        printf("\n\tMOV EBX, 0");
-        printf("\n\tLEA ECX, [%s]", pv);
-        printf("\n\tMOV EDX, 1");
-        printf("\n\tINT 0x80");
-        printf("\n\tPOP EAX");
-        printf("\n\tJMP RETfromEBP");
+        printf("\n\tMOV  [%s], EAX", pv);
+        printf("\n\tMOV  EAX, 4");
+        printf("\n\tMOV  EBX, 0");
+        printf("\n\tLEA  ECX, [%s]", pv);
+        printf("\n\tMOV  EDX, 1");
+        printf("\n\tINT  0x80");
+        printf("\n\tPOP  EAX");
+        printf("\n\tJMP  RETfromEBP");
         
-        printf("\n\n%s: ; .d\n\tCALL RETtoEBP", asmName(findVar(".d", 'F')));
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tPOP EAX\n\tJMP RETfromEBP");
+        printf("\n\n%s: ; .d", asmName(findVar(".d", 'F')));
+        printf("\n\tCALL RETtoEBP");
+        printf("\n\t; TODO: fill this in");
+        printf("\n\tMOV  [%s], EAX", pv);
+        printf("\n\tPOP  EAX");
+        printf("\n\tJMP  RETfromEBP");
         printf("\n;=============================================");
     }
     else if (seg == 'D') {

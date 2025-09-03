@@ -4,7 +4,7 @@ var x
 : T4 x @ num @ = if 4 x +! then drop ;
 
 var x
-: Mil 1000 * 1000 * ;   // n -- n'
+: Mil 1000 * 1000 * ;   // n -- m
 : CR 10 emit ;
 
 : main
