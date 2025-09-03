@@ -1,2 +1,6 @@
 fcc
 test
+/Debug
+/Release
+/fcc.vcxproj.user
+/test.exe

@@ -266,21 +266,27 @@ void winLin(int seg) {
         printf("\n\tCALL %s\n", asmName(findVar("main", 'F')));
         printf("\n;================== library ==================");
         printf("\n%s:\n\tPUSH 0\n\tCALL [ExitProcess]\n", asmName(findVar("bye", 'F')));
-        P("\n;=============================================");
+        printf("\n;=============================================");
         printf("\n%s: ; puts", asmName(findVar("puts", 'F')));
-        printf("\n\tCALL RETtoEBP\n\tMOV [%s], EAX\n\tPOP EAX", pv);
+        printf("\n\tCALL RETtoEBP");
+        printf("\n\tMOV [%s], EAX", pv);
         printf("\n\tcinvoke printf, \"%s\", [%s]", "%s", pv);
-        printf("\n\tJMP RETfromEBP\n");
+        printf("\n\tPOP EAX");
+        printf("\n\tJMP RETfromEBP");
         
-        printf("\n%s: ; emit", asmName(findVar("emit", 'F')));
-        printf("\n\tCALL RETtoEBP\n\tMOV [%s], EAX\n\tPOP EAX", pv);
+        printf("\n\n%s: ; emit", asmName(findVar("emit", 'F')));
+        printf("\n\tCALL RETtoEBP");
+        printf("\n\tMOV [%s], EAX", pv);
         printf("\n\tcinvoke printf, \"%s\", [%s]", "%c", pv);
-        printf("\n\tJMP RETfromEBP\n");
-        
-        printf("\n%s: ; .d", asmName(findVar(".d", 'F')));
-        printf("\n\tCALL RETtoEBP\n\tMOV [%s], EAX\n\tPOP EAX", pv);
+        printf("\n\tPOP EAX");
+        printf("\n\tJMP RETfromEBP");
+
+        printf("\n\n%s: ; .d", asmName(findVar(".d", 'F')));
+        printf("\n\tCALL RETtoEBP");
+        printf("\n\tMOV [%s], EAX", pv);
         printf("\n\tcinvoke printf, \"%s\", [%s]", "%d", pv);
-        printf("\n\tJMP RETfromEBP\n");
+        printf("\n\tPOP EAX");
+        printf("\n\tJMP RETfromEBP");
     }
     else if (seg == 'D') {
         printf("\n\n;================== data =====================");
