@@ -6,13 +6,10 @@ The compiler currently does a minimal amount of error checking.<br/>
 It generates assembly code for the FASM assembler.<br/>
 
 ## How it works
-Since FC generates assembly code for FASM, forward branches are not a problem.<br/>
+Since FC generates assembly code for FASM, forward branches are a non-issue.<br/>
 FC breaks the input stream into a stream of tokens.<br/>
-The current token is associated with some code.<br/>
-That code can look at the next token (if necessary) and decide what to do next.<br/>
-
-It is broken into multiple parts
-- each part is implemented in a single file.
+The parser generates a simple IRL.<br/>
+The IRL is then used to generate assembly code.<br/>
 
 fcc.c: the forth compiler
 - This takes a source file as the only argument.
@@ -23,5 +20,4 @@ fcc.c: the forth compiler
 Running:
 ```
 make test 
-make bm
 ```
