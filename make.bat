@@ -7,7 +7,7 @@ if "--%2%--" equ "----" (
 )
 
 del %src%.exe %src%.asm 2>nul
-echo %fld%\fcc %src%.fcc
+echo %fld%\fcc %src%.fcc ^> %src%.asm
 %fld%\fcc %src%.fcc > %src%.asm
 echo fasm %src%.asm
 fasm %src%.asm

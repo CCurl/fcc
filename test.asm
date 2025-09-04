@@ -1,41 +1,39 @@
+format PE console
+include 'win32ax.inc'
 
-format ELF executable
-;================== code =====================
-segment readable executable
-;================== library ==================
+; ======================================= 
+section '.code' code readable executable
+;=======================================*/
 start:
 	CALL init
-	CALL F14 ; main
+	CALL F14
 
-F1: ; bye
-	MOV  EAX, 1
-	XOR  EBX, EBX
-	INT  0x80
+;================== library ==================
+F1:
+	PUSH 0
+	CALL [ExitProcess]
 
+;=============================================
 F2: ; puts
-	; TODO: fill this in
 	CALL RETtoEBP
-	MOV  [I5], EAX
-	POP  EAX
-	JMP  RETfromEBP
+	MOV [I5], EAX
+	cinvoke printf, "%s", [I5]
+	POP EAX
+	JMP RETfromEBP
 
 F3: ; emit
 	CALL RETtoEBP
-	MOV  [I5], EAX
-	MOV  EAX, 4
-	MOV  EBX, 0
-	LEA  ECX, [I5]
-	MOV  EDX, 1
-	INT  0x80
-	POP  EAX
-	JMP  RETfromEBP
+	MOV [I5], EAX
+	cinvoke printf, "%c", [I5]
+	POP EAX
+	JMP RETfromEBP
 
 F4: ; .d
 	CALL RETtoEBP
-	; TODO: fill this in
-	MOV  [I5], EAX
-	POP  EAX
-	JMP  RETfromEBP
+	MOV [I5], EAX
+	cinvoke printf, "%d", [I5]
+	POP EAX
+	JMP RETfromEBP
 ;=============================================
 init:
 	LEA EBP, [rstk]
@@ -130,8 +128,9 @@ Tgt2:
 	LEA  EAX, [S1]
 	CALL F2 ; puts
 	JMP  RETfromEBP
+
 ;================== data =====================
-segment readable writeable
+section '.data' data readable writeable
 ;=============================================
 
 ; symbols: 500 entries, 15 used
@@ -143,3 +142,10 @@ I7         dd 0 ; x
 I11        dd 0 ; x
 S1         db "- all done!", 0
 rstk       rd 256
+
+;====================================
+section '.idata' import data readable
+; ====================================
+library msvcrt, 'msvcrt.dll', kernel32, 'kernel32.dll'
+import msvcrt, printf,'printf', getch,'_getch'
+import kernel32, ExitProcess,'ExitProcess'
