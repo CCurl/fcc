@@ -1,3 +1,4 @@
+
 format ELF executable
 ;================== code =====================
 segment readable executable
@@ -55,9 +56,8 @@ RETfromEBP:  ; Perform a return from the [EBP] stack
 
 F8: ; 0=
 	CALL RETtoEBP
-	PUSH EAX
+	MOV  EBX, EAX
 	MOV  EAX, 0
-	POP  EBX
 	CMP  EBX, EAX
 	MOV  EAX, 0
 	JNZ  @F
@@ -73,27 +73,21 @@ F9: ; T4
 	CALL F8 ; 0=
 	TEST EAX, EAX
 	JZ   Tgt1
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 121
 	CALL F3 ; emit
 	JMP  RETfromEBP
 Tgt1:
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 110
 	CALL F3 ; emit
 	JMP  RETfromEBP
 
 F12: ; Mil
 	CALL RETtoEBP
-	PUSH EAX
+	MOV  EBX, EAX
 	MOV  EAX, 1000
-	POP  EBX
 	IMUL EAX, EBX
-	PUSH EAX
+	MOV  EBX, EAX
 	MOV  EAX, 1000
-	POP  EBX
 	IMUL EAX, EBX
 	JMP  RETfromEBP
 
@@ -110,12 +104,9 @@ F14: ; main
 	PUSH EAX
 	MOV  EAX, 1000
 	CALL F12 ; Mil
-	PUSH EAX
+	MOV  EBX, EAX
 	LEA  EAX, [I11] ; x
-	POP  ECX
-	MOV  [EAX], ECX
-	POP  EAX
-	PUSH EAX
+	MOV  [EAX], EBX
 	LEA  EAX, [I11] ; x
 	MOV  EAX, [EAX]
 	CALL F4 ; .d

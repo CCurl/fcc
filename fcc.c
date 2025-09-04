@@ -1,5 +1,4 @@
-/* Chris Curl, MIT license. */
-/* Please see the README.md for details. */
+/* Chris Curl, MIT license, (c) 2025. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +9,7 @@
 #define STRS_SZ    500
 #define CODE_SZ   5000
 
-#define BTWI(n,l,h) ((l<=n)&&(n<=h))
+#define BTWI(n,l,h) ((l <= n) && (n <= h))
 #define BCASE break; case
 
 //---------------------------------------------------------------------------
@@ -70,7 +69,10 @@ int isDigit(char c, int b) {
 int checkNumber(char *w, int base) {
     int isNeg = 0;
     int_val = 0;
-    if ((w[0] == '\'') && (w[2] == w[0]) && (w[3] == 0)) { int_val = w[1]; return 1; }
+    if ((w[0] == '\'') && (w[2] == w[0]) && (w[3] == 0)) {
+        int_val = w[1];
+        return 1;
+    }
     if (*w == '%') { ++w; base = 2; }
     else if (*w == 'o') { ++w; base = 8; }
     else if (*w == '#') { ++w; base = 10; }
@@ -175,12 +177,13 @@ void dumpSymbols() {
 // IRL
 enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
     , ADD, SUB, MULT, DIVIDE
-    , DUP, DROP, SWAP, OVER
+    , POPA, PUSHA, SWAP, SP4
     , AND, OR, XOR
     , JMP, JMPZ, JMPNZ, TARGET
     , DEF, CALL, RETURN
     , LT, GT, EQ, NEQ
     , PLEQ, DECTOS, INCTOS
+    , MOVAB, POPB
 };
 
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
@@ -193,7 +196,19 @@ void optimizeIRL() {
     int i = 1;
     while (i <= here) {
         int op = opcodes[i];
-        int a1 = arg1[i];
+        int op1 = opcodes[i+1];
+        int op2 = opcodes[i+2];
+        if ((op == POPA) && (op1 == PUSHA)) {
+            // printf("\n; OPTIMIZE: remove popa/pusha at %d", i);
+            // NOTE: this assumes we modifying EAX next
+            opcodes[i] = NOTHING;
+            opcodes[i+1] = NOTHING;
+        }
+        if ((op == PUSHA) && (op2 == POPB)) {
+            // printf("\n; OPTIMIZE: remove pusha/popb at %d", i);
+            opcodes[i] = MOVAB;
+            opcodes[i+2] = NOTHING;
+        }
         i++;
     }
 }
@@ -215,6 +230,12 @@ void genStartupCode() {
     printf("\n;=============================================");
 }
 
+char *rN(int n) {
+    if (n == 0) { return "EAX"; }
+    if (n == 1) { return "EBX"; }
+    return "";
+}
+
 void genCode() {
     genStartupCode();
     int i = 1;
@@ -222,28 +243,29 @@ void genCode() {
         int op = opcodes[i];
         int a1 = arg1[i];
         char *vn = varName(a1), *an = asmName(a1);
-        switch (op) {
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
-            case VARADDR:  printf("\n\tPUSH EAX\n\tLEA  EAX, [%s] ; %s", an, vn);
-            BCASE LIT:     printf("\n\tPUSH EAX\n\tMOV  EAX, %d", a1);
-            BCASE DUP:     printf("\n\tPUSH EAX");
-            BCASE DROP:    printf("\n\tPOP  EAX");
+        switch (op) {
+            case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
+            BCASE LIT:     printf("\n\tMOV  EAX, %d", a1);
+            BCASE PUSHA:   printf("\n\tPUSH EAX"); // DUP
+            BCASE POPA:    printf("\n\tPOP  EAX"); // DROP
+            BCASE POPB:    printf("\n\tPOP  EBX");
             BCASE SWAP:    printf("\n\tXCHG EAX, [ESP]");
-            BCASE OVER:    printf("\n\tPUSH EAX\n\tMOV  EAX, [ESP+4]");
-            BCASE LOADSTR: printf("\n\tPUSH EAX\n\tLEA  EAX, [%s]", strings[a1].name);
-            BCASE STORE:   printf("\n\tPOP  ECX\n\tMOV  [EAX], ECX\n\tPOP  EAX");
+            BCASE SP4:     printf("\n\tMOV  %s, [ESP+4]", rN(a1));
+            BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", strings[a1].name);
+            BCASE STORE:   printf("\n\tMOV  [EAX], EBX");
             BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
-            BCASE PLEQ:    printf("\n\tPOP  EBX\n\tADD  [EAX], EBX\n\tPOP  EAX");
+            BCASE PLEQ:    printf("\n\tADD  [EAX], EBX");
             BCASE DECTOS:  printf("\n\tDEC  EAX");
             BCASE INCTOS:  printf("\n\tINC  EAX");
-            BCASE ADD:     printf("\n\tPOP  EBX\n\tADD  EAX, EBX");
-            BCASE SUB:     printf("\n\tPOP  EBX\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
-            BCASE MULT:    printf("\n\tPOP  EBX\n\tIMUL EAX, EBX");
-            BCASE DIVIDE:  printf("\n\tPOP  EBX\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
-            BCASE LT:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
-            BCASE GT:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
-            BCASE EQ:      printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
-            BCASE NEQ:     printf("\n\tPOP  EBX\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
+            BCASE ADD:     printf("\n\tADD  EAX, EBX");
+            BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
+            BCASE MULT:    printf("\n\tIMUL EAX, EBX");
+            BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
+            BCASE LT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
+            BCASE GT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
+            BCASE EQ:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
+            BCASE NEQ:     printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
             BCASE DEF:     printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
             BCASE CALL:    printf("\n\tCALL %s ; %s", an, vn);
             BCASE RETURN:  printf("\n\tJMP  RETfromEBP");
@@ -251,6 +273,7 @@ void genCode() {
             BCASE JMP:     printf("\n\tJMP  %s", vn);
             BCASE JMPZ:    printf("\n\tTEST EAX, EAX\n\tJZ   %s", vn);
             BCASE JMPNZ:   printf("\n\tTEST EAX, EAX\n\tJNZ  %s", vn);
+            BCASE MOVAB:   printf("\n\tMOV  EBX, EAX");
         }
         i++;
     }
@@ -312,7 +335,7 @@ void winLin(int seg) {
     // Linux (32-bit)
     if (seg == 'C') {
         char *pv = asmName(findVar("pv", 'I'));
-        printf("format ELF executable");
+        printf("\nformat ELF executable");
         printf("\n;================== code =====================");
         printf("\nsegment readable executable");
         printf("\n;================== library ==================");
@@ -375,18 +398,19 @@ void stringStmt() {
     tmpStr[i] = 0;
     next_ch();
     i = addString(tmpStr);
+    gen(PUSHA);
     gen1(LOADSTR, i);
 }
 
 void statement() {
-    if (is_num) { gen1(LIT, int_val); return; }
+    if (is_num) { gen(PUSHA); gen1(LIT, int_val); return; }
     int i = findVar(token, 'I');
-    if (i) { gen1(VARADDR, i); return; }
+    if (i) { gen(PUSHA); gen1(VARADDR, i); return; }
     i = findVar(token, 'F');
     if (i) { gen1(CALL, i); return; }
     
     if (accept("@"))          { gen(FETCH); }
-    else if (accept("!"))     { gen(STORE); }
+    else if (accept("!"))     { gen(POPB); gen(STORE); gen(POPA); }
     else if (accept("1+"))    { gen(INCTOS); }
     else if (accept("1-"))    { gen(DECTOS); }
     else if (accept("if"))    { push(genTargetSymbol()); gen1(JMPZ, stk[sp]); }
@@ -397,19 +421,20 @@ void statement() {
     else if (accept("until")) { gen1(JMPZ, pop()); }
     else if (accept("again")) { gen1(JMP, pop()); }
     else if (accept("exit"))  { gen(RETURN); }
-    else if (accept("dup"))   { gen(DUP); }
-    else if (accept("drop"))  { gen(DROP); }
+    else if (accept("dup"))   { gen(PUSHA); }
+    else if (accept("drop"))  { gen(POPA); }
     else if (accept("swap"))  { gen(SWAP); }
-    else if (accept("over"))  { gen(OVER); }
+    else if (accept("over"))  { gen(PUSHA); gen1(SP4, 0); }
     else if (accept(";"))     { gen(RETURN); }
-    else if (accept("+!"))    { gen(PLEQ); }
-    else if (accept("+"))     { gen(ADD); }
-    else if (accept("-"))     { gen(SUB); }
-    else if (accept("*"))     { gen(MULT); }
-    else if (accept("/"))     { gen(DIVIDE); }
-    else if (accept("<"))     { gen(LT); }
-    else if (accept("="))     { gen(EQ); }
-    else if (accept(">"))     { gen(GT); }
+    else if (accept("+!"))    { gen(POPB); gen(PLEQ); gen(POPA); }
+    else if (accept("+"))     { gen(POPB); gen(ADD); }
+    else if (accept("-"))     { gen(POPB); gen(SUB); }
+    else if (accept("*"))     { gen(POPB); gen(MULT); }
+    else if (accept("/"))     { gen(POPB); gen(DIVIDE); }
+    else if (accept("<"))     { gen(POPB); gen(LT); }
+    else if (accept("="))     { gen(POPB); gen(EQ); }
+    else if (accept("<>"))    { gen(POPB); gen(NEQ); }
+    else if (accept(">"))     { gen(POPB); gen(GT); }
     else if (accept("\""))    { stringStmt(); }
     else if (accept("("))     { while (!accept(")")) { next_token(); } }
     else if (accept(""))      { return; }
