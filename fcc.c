@@ -6,21 +6,23 @@
 #include <string.h>
 #include "heap.h"
 
+#define VARS_SZ    500
+#define STRS_SZ    500
+#define CODE_SZ   5000
+
 #define BTWI(n,l,h) ((l<=n)&&(n<=h))
 #define BCASE break; case
 
 //---------------------------------------------------------------------------
 // Tokens
-int ch = ' ', tok, is_num, digit, int_val;
+int ch = ' ', is_num, digit, int_val;
 FILE *input_fp = NULL;
-char token[32], cur_line[256] = {0};
+char tmpStr[256], token[32], cur_line[256] = {0};
 int is_eof = 0, cur_lnum, cur_off;
 int stk[64], sp=0;
 
 void push(int x) { stk[++sp] = x; }
 int  pop() { return stk[sp--]; }
-
-void statement();
 
 void msg(int fatal, char *s) {
     printf("\n%s at(%d, %d)", s, cur_lnum, cur_off);
@@ -66,31 +68,34 @@ int isDigit(char c, int b) {
 }
 
 int checkNumber(char *w, int base) {
+    int isNeg = 0;
     int_val = 0;
     if ((w[0] == '\'') && (w[2] == w[0]) && (w[3] == 0)) { int_val = w[1]; return 1; }
     if (*w == '%') { ++w; base = 2; }
     else if (*w == 'o') { ++w; base = 8; }
     else if (*w == '#') { ++w; base = 10; }
     else if (*w == '$') { ++w; base = 16; }
+    if (*w == '-') { isNeg = 1; ++w; }
     if (*w == 0) { return 0; }
     while (*w) {
         if (isDigit(*(w++), base) == 0) { return 0; }
         int_val = (int_val* base) + digit;
     }
+    if (isNeg) { int_val = -int_val; }
     return 1;
 }
 
 void next_token() {
+    int len;
     start:
-    token[0] = 0;
-    tok = 0;
+    len = 0;
     while (BTWI(ch, 1, 32)) { next_ch(); }
-    if (ch == EOF) { return; }
+    if (ch == EOF) { token[len] = 0; return; }
     while (BTWI(ch, 33, 126)) {
-        token[tok++] = ch;
+        token[len++] = ch;
         next_ch();
     }
-    token[tok] = 0;
+    token[len] = 0;
     if (strEq(token, "//")) { next_line(); goto start; }
     is_num = checkNumber(token, 10);
 }
@@ -100,8 +105,8 @@ void next_token() {
 typedef struct { char type, name[23]; char asmName[8]; int sz; } SYM_T;
 typedef struct { char name[32]; char *val; } STR_T;
 
-SYM_T vars[500];
-STR_T strings[500];
+SYM_T vars[VARS_SZ];
+STR_T strings[STRS_SZ];
 int numVars, numStrings;
 
 int  varType(int i)  { return vars[i].type; }
@@ -151,7 +156,7 @@ int addString(char *str) {
 }
 
 void dumpSymbols() {
-    printf("\n\n; symbols: %d entries, %d used\n", 100, numVars);
+    printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
     printf("; num type size name\n");
     printf("; --- ---- ---- -----------------\n");
     for (int i = 1; i <= numVars; i++) {
@@ -178,7 +183,7 @@ enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
     , PLEQ, DECTOS, INCTOS
 };
 
-int opcodes[10000], arg1[10000], here;
+int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 
 void gInit() { here = 0; }
 void gen(int op) { ++here; opcodes[here] = op; }
@@ -207,6 +212,7 @@ void genStartupCode() {
     printf("\n\tPUSH DWORD [EBP]");
     printf("\n\tSUB  EBP, 4");
     printf("\n\tRET");
+    printf("\n;=============================================");
 }
 
 void genCode() {
@@ -287,6 +293,7 @@ void winLin(int seg) {
         printf("\n\tcinvoke printf, \"%s\", [%s]", "%d", pv);
         printf("\n\tPOP EAX");
         printf("\n\tJMP RETfromEBP");
+        printf("\n;=============================================");
     }
     else if (seg == 'D') {
         printf("\n\n;================== data =====================");
@@ -357,15 +364,6 @@ void winLin(int seg) {
     }
 }
 
-void ifStmt() { push(genTargetSymbol()); gen1(JMPZ, stk[sp]); }
-void elseStmt() { printf("\n\t; WARNING - ELSE not yet implemented"); }
-void thenStmt() { gen1(TARGET, pop()); }
-void beginStmt() { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
-void whileStmt() { gen1(JMPNZ, pop()); }
-void untilStmt() { gen1(JMPZ, pop()); }
-void againStmt() { gen1(JMP, pop()); }
-
-char tmpStr[256];
 void stringStmt() {
     int i = 0;
     next_ch();
@@ -387,17 +385,17 @@ void statement() {
     i = findVar(token, 'F');
     if (i) { gen1(CALL, i); return; }
     
-    if (accept("@"))    { gen(FETCH); }
+    if (accept("@"))          { gen(FETCH); }
     else if (accept("!"))     { gen(STORE); }
     else if (accept("1+"))    { gen(INCTOS); }
     else if (accept("1-"))    { gen(DECTOS); }
-    else if (accept("if"))    { ifStmt(); }
-    else if (accept("else"))  { elseStmt(); }
-    else if (accept("then"))  { thenStmt(); }
-    else if (accept("begin")) { beginStmt(); }
-    else if (accept("while")) { whileStmt(); }
-    else if (accept("until")) { untilStmt(); }
-    else if (accept("again")) { againStmt(); }
+    else if (accept("if"))    { push(genTargetSymbol()); gen1(JMPZ, stk[sp]); }
+    else if (accept("else"))  { printf("\n\t; WARNING - ELSE not yet implemented"); }
+    else if (accept("then"))  { gen1(TARGET, pop()); }
+    else if (accept("begin")) { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
+    else if (accept("while")) { gen1(JMPNZ, pop()); }
+    else if (accept("until")) { gen1(JMPZ, pop()); }
+    else if (accept("again")) { gen1(JMP, pop()); }
     else if (accept("exit"))  { gen(RETURN); }
     else if (accept("dup"))   { gen(DUP); }
     else if (accept("drop"))  { gen(DROP); }
@@ -410,9 +408,10 @@ void statement() {
     else if (accept("*"))     { gen(MULT); }
     else if (accept("/"))     { gen(DIVIDE); }
     else if (accept("<"))     { gen(LT); }
-    else if (accept(">"))     { gen(EQ); }
-    else if (accept("="))     { gen(GT); }
+    else if (accept("="))     { gen(EQ); }
+    else if (accept(">"))     { gen(GT); }
     else if (accept("\""))    { stringStmt(); }
+    else if (accept("("))     { while (!accept(")")) { next_token(); } }
     else if (accept(""))      { return; }
     else { syntax_error(); }
 }
@@ -436,11 +435,10 @@ void parseVar() {
 void parseDef() {
     if (accept("var")) { parseVar(); }
     else if (accept(":")) { funcDef(); }
-    else { statement(); }
+    else if (token[0]) { syntax_error(); }
 }
 
 /*---------------------------------------------------------------------------*/
-/* Main program. */
 int main(int argc, char *argv[]) {
     char *fn = (argc > 1) ? argv[1] : NULL;
     input_fp = stdin;
