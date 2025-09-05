@@ -138,8 +138,9 @@ int addString(char *str) {
 
 //---------------------------------------------------------------------------
 // IRL
-enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
-    , ADD, SUB, MULT, DIVIDE
+enum { NOTHING, VARADDR, LIT, LOADSTR
+    , STORE, FETCH, CSTORE, CFETCH
+    , ADD, SUB, MULT, DIVIDE, DIVMOD
     , AND, OR, XOR
     , POPA, PUSHA, SWAP, SP4
     , JMP, JMPZ, JMPNZ, TARGET
@@ -205,7 +206,9 @@ void genCode() {
             BCASE SP4:     printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
             BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", strings[a1].name);
             BCASE STORE:   printf("\n\tMOV  [EAX], EBX");
+            BCASE CSTORE:  printf("\n\tMOV  [EAX], BL");
             BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
+            BCASE CFETCH:  printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
             BCASE PLEQ:    printf("\n\tADD  [EAX], EBX");
             BCASE DECTOS:  printf("\n\tDEC  EAX");
             BCASE INCTOS:  printf("\n\tINC  EAX");
@@ -213,6 +216,7 @@ void genCode() {
             BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
             BCASE MULT:    printf("\n\tIMUL EAX, EBX");
             BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
+            BCASE DIVMOD:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
             BCASE AND:     printf("\n\tAND  EAX, EBX");
             BCASE OR:      printf("\n\tOR   EAX, EBX");
             BCASE XOR:     printf("\n\tXOR  EAX, EBX");
@@ -301,9 +305,19 @@ void winLin(int seg) {
         printf("\n\tINT  0x80");
 
         printf("\n\n%s: ; puts", asmName(findSymbol("puts", 'F')));
-        printf("\n\t; TODO: fill this in");
         printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV  [%s], EAX", pv);
+        printf("\n\tMOV  ECX, EAX");
+        printf("\n\tMOV  EDX, EAX");
+        printf("\n.strlen:");
+        printf("\n\tCMP  BYTE [EDX], 0");
+        printf("\n\tJE   .done");
+        printf("\n\tINC  EDX");
+        printf("\n\tJMP  .strlen");
+        printf("\n.done:");
+        printf("\n\tSUB  EDX, ECX");
+        printf("\n\tMOV  EAX, 4");
+        printf("\n\tMOV  EBX, 1");
+        printf("\n\tINT  0x80");
         printf("\n\tPOP  EAX");
         printf("\n\tJMP  RETfromEBP");
         
@@ -320,8 +334,33 @@ void winLin(int seg) {
         
         printf("\n\n%s: ; .d", asmName(findSymbol(".d", 'F')));
         printf("\n\tCALL RETtoEBP");
-        printf("\n\t; TODO: fill this in");
         printf("\n\tMOV  [%s], EAX", pv);
+        // Convert integer in EAX to string in [intbuf]");
+        printf("\n\tMOV  ECX, intbuf+11");
+        printf("\n\tMOV  EBX, [%s]", pv);
+        printf("\n\tCMP  EBX, 0");
+        printf("\n\tJGE  .convert");
+        printf("\n\tNEG  EBX");
+        printf("\n\tMOV  AL, '-'");
+        printf("\n\tDEC  ECX");
+        printf("\n\tMOV  [ECX], AL");
+        printf("\n.convert:");
+        printf("\n\tMOV  EAX, EBX");
+        printf("\n.repeat:");
+        printf("\n\tMOV  EDX, 0");
+        printf("\n\tMOV  EBX, 10");
+        printf("\n\tDIV  EBX");
+        printf("\n\tADD  DL, '0'");
+        printf("\n\tDEC  ECX");
+        printf("\n\tMOV  [ECX], DL");
+        printf("\n\tTEST EAX, EAX");
+        printf("\n\tJNZ  .repeat");
+        // Print the string
+        printf("\n\tMOV  EAX, 4");
+        printf("\n\tMOV  EBX, 1");
+        printf("\n\tMOV  EDX, intbuf+11");
+        printf("\n\tSUB  EDX, ECX");
+        printf("\n\tINT  0x80");
         printf("\n\tPOP  EAX");
         printf("\n\tJMP  RETfromEBP");
         printf("\n;=============================================");
@@ -330,6 +369,7 @@ void winLin(int seg) {
         printf("\n;================== data =====================");
         printf("\nsegment readable writeable");
         printf("\n;=============================================");
+        printf("\nintbuf      rb 12 ; for .d");
     }
 #endif
     if (seg == 'S') {
@@ -363,7 +403,9 @@ void statement() {
     if (i) { gen1(CALL, i); return; }
     
     if (accept("@"))          { gen(FETCH); }
+    else if (accept("c@"))    { gen(CFETCH); }
     else if (accept("!"))     { gen(POPB); gen(STORE); gen(POPA); }
+    else if (accept("c!"))    { gen(POPB); gen(CSTORE); gen(POPA); }
     else if (accept("1+"))    { gen(INCTOS); }
     else if (accept("1-"))    { gen(DECTOS); }
     else if (accept("if"))    { push(genTargetSymbol()); gen(TESTA); gen1(JMPZ, stk[sp]); }
@@ -383,6 +425,7 @@ void statement() {
     else if (accept("+"))     { gen(POPB); gen(ADD); }
     else if (accept("-"))     { gen(POPB); gen(SUB); }
     else if (accept("*"))     { gen(POPB); gen(MULT); }
+    else if (accept("/mod"))  { gen(POPB); gen(DIVMOD); }
     else if (accept("/"))     { gen(POPB); gen(DIVIDE); }
     else if (accept("<"))     { gen(POPB); gen(LT); }
     else if (accept("="))     { gen(POPB); gen(EQ); }

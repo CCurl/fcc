@@ -9,13 +9,21 @@ var x
 var x
 : Mil ( n--m ) 1000 dup * * ;
 : CR 10 emit ;
+: SPACE 32 emit ;
+
+: (.) ( n-- ) 
+	dup 0 < if '-' emit 0 swap - then
+	dup 9 > if 10 /mod swap (.) then
+	'0' + emit ;
 
 : main
 	T4
 	1000 Mil x !
-	x @ .d
+	123 100 /mod .d 32 emit .d CR
+	// x @ .
+	x @ .d SPACE
 	's' 'e' swap emit
 	x @ begin 1- while drop
 	emit CR // $41 emit
-	" - all done!" puts
+	" - all done!" puts CR
 ;

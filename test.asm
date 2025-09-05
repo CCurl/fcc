@@ -5,7 +5,7 @@ segment readable executable
 ;================== library ==================
 start:
 	CALL init
-	CALL F14 ; main
+	CALL F18 ; main
 
 F1: ; bye
 	MOV  EAX, 1
@@ -13,9 +13,19 @@ F1: ; bye
 	INT  0x80
 
 F2: ; puts
-	; TODO: fill this in
 	CALL RETtoEBP
-	MOV  [I5], EAX
+	MOV  ECX, EAX
+	MOV  EDX, EAX
+.strlen:
+	CMP  BYTE [EDX], 0
+	JE   .done
+	INC  EDX
+	JMP  .strlen
+.done:
+	SUB  EDX, ECX
+	MOV  EAX, 4
+	MOV  EBX, 1
+	INT  0x80
 	POP  EAX
 	JMP  RETfromEBP
 
@@ -32,8 +42,31 @@ F3: ; emit
 
 F4: ; .d
 	CALL RETtoEBP
-	; TODO: fill this in
 	MOV  [I5], EAX
+	MOV  ECX, intbuf+11
+	MOV  EBX, [I5]
+	CMP  EBX, 0
+	JGE  .convert
+	NEG  EBX
+	MOV  AL, '-'
+	DEC  ECX
+	MOV  [ECX], AL
+.convert:
+	MOV  EAX, EBX
+.repeat:
+	MOV  EDX, 0
+	MOV  EBX, 10
+	DIV  EBX
+	ADD  DL, '0'
+	DEC  ECX
+	MOV  [ECX], DL
+	TEST EAX, EAX
+	JNZ  .repeat
+	MOV  EAX, 4
+	MOV  EBX, 1
+	MOV  EDX, intbuf+11
+	SUB  EDX, ECX
+	INT  0x80
 	POP  EAX
 	JMP  RETfromEBP
 ;=============================================
@@ -98,7 +131,61 @@ F13: ; CR
 	CALL F3 ; emit
 	JMP  RETfromEBP
 
-F14: ; main
+F14: ; SPACE
+	CALL RETtoEBP
+	PUSH EAX
+	MOV  EAX, 32
+	CALL F3 ; emit
+	JMP  RETfromEBP
+
+F15: ; (.)
+	CALL RETtoEBP
+	PUSH EAX
+	MOV  EBX, EAX
+	MOV  EAX, 0
+	CMP  EBX, EAX
+	MOV  EAX, 0
+	JGE  @F
+	DEC  EAX
+@@:
+	TEST EAX, EAX
+	JZ   Tgt2
+	PUSH EAX
+	MOV  EAX, 45
+	CALL F3 ; emit
+	PUSH EAX
+	MOV  EAX, 0
+	XCHG EAX, [ESP]
+	POP  EBX
+	XCHG EAX, EBX
+	SUB  EAX, EBX
+Tgt2:
+	PUSH EAX
+	MOV  EBX, EAX
+	MOV  EAX, 9
+	CMP  EBX, EAX
+	MOV  EAX, 0
+	JLE  @F
+	DEC  EAX
+@@:
+	TEST EAX, EAX
+	JZ   Tgt3
+	MOV  EBX, EAX
+	MOV  EAX, 10
+	XCHG EAX, EBX
+	CDQ
+	IDIV EBX
+	PUSH EDX
+	XCHG EAX, [ESP]
+	CALL F15 ; (.)
+Tgt3:
+	MOV  EBX, EAX
+	MOV  EAX, 48
+	ADD  EAX, EBX
+	CALL F3 ; emit
+	JMP  RETfromEBP
+
+F18: ; main
 	CALL RETtoEBP
 	CALL F9 ; T4
 	PUSH EAX
@@ -107,9 +194,24 @@ F14: ; main
 	MOV  EBX, EAX
 	LEA  EAX, [I11] ; x
 	MOV  [EAX], EBX
+	MOV  EAX, 123
+	MOV  EBX, EAX
+	MOV  EAX, 100
+	XCHG EAX, EBX
+	CDQ
+	IDIV EBX
+	PUSH EDX
+	CALL F4 ; .d
+	PUSH EAX
+	MOV  EAX, 32
+	CALL F3 ; emit
+	CALL F4 ; .d
+	CALL F13 ; CR
+	PUSH EAX
 	LEA  EAX, [I11] ; x
 	MOV  EAX, [EAX]
 	CALL F4 ; .d
+	CALL F14 ; SPACE
 	PUSH EAX
 	MOV  EAX, 115
 	PUSH EAX
@@ -119,21 +221,23 @@ F14: ; main
 	PUSH EAX
 	LEA  EAX, [I11] ; x
 	MOV  EAX, [EAX]
-Tgt2:
+Tgt4:
 	DEC  EAX
-	JNZ  Tgt2
+	JNZ  Tgt4
 	POP  EAX
 	CALL F3 ; emit
 	CALL F13 ; CR
 	PUSH EAX
 	LEA  EAX, [S1]
 	CALL F2 ; puts
+	CALL F13 ; CR
 	JMP  RETfromEBP
 ;================== data =====================
 segment readable writeable
 ;=============================================
+intbuf      rb 12 ; for .d
 
-; symbols: 500 entries, 15 used
+; symbols: 500 entries, 19 used
 ; num type size name
 ; --- ---- ---- -----------------
 I5         dd 0 ; pv
