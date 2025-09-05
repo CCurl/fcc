@@ -128,19 +128,6 @@ int addString(char *str) {
     return i;
 }
 
-void dumpSymbols() {
-    printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
-    printf("; num type size name\n");
-    printf("; --- ---- ---- -----------------\n");
-    for (int i = 1; i <= numVars; i++) {
-        if (vars[i].type == 'I') { printf("%-10s dd 0 ; %s\n", asmName(i), varName(i)); }
-    }
-    for (int i = 1; i <= numStrings; i++) {
-        printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
-    }
-    printf("rstk       rd 256\n");
-}
-
 //---------------------------------------------------------------------------
 // IRL
 enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
@@ -429,7 +416,16 @@ int main(int argc, char *argv[]) {
     winLin('C');
     genCode();
     winLin('D');
-    dumpSymbols();
+    printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
+    printf("; num type size name\n");
+    printf("; --- ---- ---- -----------------\n");
+    for (int i = 1; i <= numVars; i++) {
+        if (vars[i].type == 'I') { printf("%-10s dd 0 ; %s\n", asmName(i), varName(i)); }
+    }
+    for (int i = 1; i <= numStrings; i++) {
+        printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
+    }
+    printf("rstk       rd 256\n");
     winLin('I');
     return 0;
 }
