@@ -334,21 +334,17 @@ void winLin(int seg) {
         
         printf("\n\n%s: ; .d", asmName(findSymbol(".d", 'F')));
         printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV  [%s], EAX", pv);
         // Convert integer in EAX to string in [intbuf]");
+        printf("\n\tMOV  [%s], 0", pv);
         printf("\n\tMOV  ECX, intbuf+11");
-        printf("\n\tMOV  EBX, [%s]", pv);
-        printf("\n\tCMP  EBX, 0");
+        printf("\n\tCMP  EAX, 0");
         printf("\n\tJGE  .convert");
-        printf("\n\tNEG  EBX");
-        printf("\n\tMOV  AL, '-'");
-        printf("\n\tDEC  ECX");
-        printf("\n\tMOV  [ECX], AL");
+        printf("\n\tNEG  EAX");
+        printf("\n\tINC  [%s]", pv);
         printf("\n.convert:");
-        printf("\n\tMOV  EAX, EBX");
+        printf("\n\tMOV  EBX, 10");
         printf("\n.repeat:");
         printf("\n\tMOV  EDX, 0");
-        printf("\n\tMOV  EBX, 10");
         printf("\n\tDIV  EBX");
         printf("\n\tADD  DL, '0'");
         printf("\n\tDEC  ECX");
@@ -356,6 +352,12 @@ void winLin(int seg) {
         printf("\n\tTEST EAX, EAX");
         printf("\n\tJNZ  .repeat");
         // Print the string
+        printf("\n\tMOV  EAX, [%s]", pv);
+        printf("\n\tTEST EAX, EAX");
+        printf("\n\tJZ   .pr");
+        printf("\n\tDEC  ECX");
+        printf("\n\tMOV  BYTE [ECX], '-'");
+        printf("\n.pr:");
         printf("\n\tMOV  EAX, 4");
         printf("\n\tMOV  EBX, 1");
         printf("\n\tMOV  EDX, intbuf+11");

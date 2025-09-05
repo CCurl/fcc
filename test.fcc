@@ -2,13 +2,12 @@ var num
 var x
 
 : 0= 0 = ;
-: T4 x @ 0=
-	if drop 'y' emit exit then
-	drop 'n' emit ;
+: T4 x @ 0= if drop 'y' emit exit then drop 'n' emit ;
 
 : Mil ( n--m ) 1000 dup * * ;
 : cr 10 emit ;
 : space 32 emit ;
+: negate 0 swap - ;
 
 var (a)
 : a@ (a) @ ;    : a! (a) ! ;
@@ -17,26 +16,28 @@ var (a)
 : c!a- c!a a@ 1- a! ;
 
 var x1 var x2 var x3
-var neg var n
+var #n var n
 : #c ( n-- ) c!a- ;
 : #d ( n-- ) '0' + #c ;
-: #neg? dup 0 < dup neg ! if 0 swap - then ;
-: # 10 /mod swap #c ;
+: #neg? dup 0 < dup #n ! if swap negate then drop ;
+: # 10 /mod swap #d ;
 : #s # # # # # ;
-: <# neg 1- 0 c!a- ;
 : #> drop a@ 1+ ;
+: <# #n 1- 0 #c ;
 : (.) <# #s #> puts ;
 : (.) .d ;
 : . (.) space ;
 
-: t5 x1 a! 'h' c!a+ 'i' c!a+ 10 c!a+ 0 c!a x1 puts ;
-: t6 neg 1- a! 0 c!a- 'f' c!a- 'h' c!a- a@ 1+ puts cr ;
+: t5 x1 a! 'h' c!a+ 'i' c!a+ 0 c!a x1 puts space ;
+: t6 #n 1- a! 0 #c 'i' #c 'h' #c a@ 1+ puts cr ;
+: t7 " n1" puts  123 #neg? . #n @ . ;
+: t8 " n2" puts -123 #neg? . #n @ . cr ;
 
 : main
-	T4 t5 t6
+	T4 t5 t6 t7 t8
 	// " #neg? " puts 22234 #neg? . neg @ . cr
 	'g' x c! x c@ dup . emit cr
-	123 100 /mod . . cr
+	999 123 100 /mod . . . cr
 	1000 Mil x !
 	// x @ .
 	x @ . space
