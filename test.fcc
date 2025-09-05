@@ -6,24 +6,42 @@ var x
 	if drop 'y' emit exit then
 	drop 'n' emit ;
 
-var x
 : Mil ( n--m ) 1000 dup * * ;
-: CR 10 emit ;
-: SPACE 32 emit ;
+: cr 10 emit ;
+: space 32 emit ;
 
-: (.) ( n-- ) 
-	dup 0 < if '-' emit 0 swap - then
-	dup 9 > if 10 /mod swap (.) then
-	'0' + emit ;
+var (a)
+: a@ (a) @ ;    : a! (a) ! ;
+: @a a@ @ ;     : c@a a@ c@ ;    : c@a+ c@a 1 (a) +! ;
+: !a a@ ! ;     : c!a a@ c! ;    : c!a+ c!a 1 (a) +! ;
+: c!a- c!a a@ 1- a! ;
+
+var x1 var x2 var x3
+var neg var n
+: #c ( n-- ) c!a- ;
+: #d ( n-- ) '0' + #c ;
+: #neg? dup 0 < dup neg ! if 0 swap - then ;
+: # 10 /mod swap #c ;
+: #s # # # # # ;
+: <# neg 1- 0 c!a- ;
+: #> drop a@ 1+ ;
+: (.) <# #s #> puts ;
+: (.) .d ;
+: . (.) space ;
+
+: t5 x1 a! 'h' c!a+ 'i' c!a+ 10 c!a+ 0 c!a x1 puts ;
+: t6 neg 1- a! 0 c!a- 'f' c!a- 'h' c!a- a@ 1+ puts cr ;
 
 : main
-	T4
+	T4 t5 t6
+	// " #neg? " puts 22234 #neg? . neg @ . cr
+	'g' x c! x c@ dup . emit cr
+	123 100 /mod . . cr
 	1000 Mil x !
-	123 100 /mod .d 32 emit .d CR
 	// x @ .
-	x @ .d SPACE
+	x @ . space
 	's' 'e' swap emit
 	x @ begin 1- while drop
-	emit CR // $41 emit
-	" - all done!" puts CR
+	emit cr // $41 emit
+	" - all done!" puts cr
 ;
