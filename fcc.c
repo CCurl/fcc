@@ -12,29 +12,37 @@
 #define BTWI(n,l,h) ((l <= n) && (n <= h))
 #define BCASE break; case
 
-//---------------------------------------------------------------------------
-// Tokens
-int ch = ' ', is_num, digit, int_val;
+typedef struct { char type, name[23]; char asmName[8]; int sz; } SYM_T;
+typedef struct { char name[32]; char *val; } STR_T;
+
+int ch = ' ', is_num, int_val;
 int is_eof = 0, cur_lnum, cur_off, stk[64], sp=0;
+int numVars, numStrings;
+int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 char token[32], cur_line[256] = {0};
+SYM_T vars[VARS_SZ];
+STR_T strings[STRS_SZ];
 FILE *input_fp = NULL;
 
+//---------------------------------------------------------------------------
+// Utilities
 void push(int x) { stk[++sp] = x; }
 int  pop() { return stk[sp--]; }
 int strEq(char *s1, char *s2) { return (strcmp(s1, s2) == 0) ? 1 : 0; }
 int accept(char *str) { return strEq(token, str); }
+char *varName(int i) { return vars[i].name; }
+char *asmName(int i) { return vars[i].asmName; }
+void gen(int op) { ++here; opcodes[here] = op; }
+void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
 
 void msg(int fatal, char *s) {
-    printf("\n%s at(%d, %d)", s, cur_lnum, cur_off);
-    printf("\n%s", cur_line);
+    printf("\n%s at(%d, %d)\n%s", s, cur_lnum, cur_off, cur_line);
     for (int i = 2; i < cur_off; i++) { printf(" "); } printf("^");
     if (fatal) { fprintf(stderr, "\n%s (see output for details)\n", s); exit(1); }
 }
-void syntax_error() { msg(1, "syntax error"); }
 
 //---------------------------------------------------------------------------
-// Lexer
-
+// Tokens
 void next_line() {
     cur_off = 0;
     cur_lnum++;
@@ -49,19 +57,7 @@ void next_ch() {
     }
     ch = cur_line[cur_off++];
     if (ch == 9) { ch = cur_line[cur_off-1] = 32; }
-}
-
-int isDigit(char c, int b) {
-    if ((b == 2)  && (BTWI(c, '0','1'))) { digit = c - '0'; return 1; }
-    if ((b == 8)  && (BTWI(c, '0','7'))) { digit = c - '0'; return 1; }
-    if ((b == 10) && (BTWI(c, '0','9'))) { digit = c - '0'; return 1; }
-    if (b == 16) {
-        if (BTWI(c, '0','9')) { digit = c - '0'; return 1; }
-        if (BTWI(c, 'A','F')) { digit = c - 'A' + 10; return 1; }
-        if (BTWI(c, 'a','f')) { digit = c - 'a' + 10; return 1; }
     }
-    return 0; 
-}
 
 int checkNumber(char *w, int base) {
     int isNeg = 0;
@@ -74,8 +70,13 @@ int checkNumber(char *w, int base) {
     if (*w == '-') { isNeg = 1; ++w; }
     if (*w == 0) { return 0; }
     while (*w) {
-        if (isDigit(*(w++), base) == 0) { return 0; }
-        int_val = (int_val* base) + digit;
+        char c = *(w++), digit = 99;
+        if (BTWI(c, '0', '9')) { digit = c - '0'; }
+        else if (BTWI(c, 'A', 'F')) { digit = c - 'A' + 10; }
+        else if (BTWI(c, 'a', 'f')) { digit = c - 'a' + 10; }
+        else { return 0; }
+        if (digit >= base) { return 0; }
+        int_val = (int_val * base) + digit;
     }
     if (isNeg) { int_val = -int_val; }
     return 1;
@@ -86,11 +87,7 @@ void next_token() {
     start:
     len = 0;
     while (BTWI(ch, 1, 32)) { next_ch(); }
-    if (ch == EOF) { token[len] = 0; return; }
-    while (BTWI(ch, 33, 126)) {
-        token[len++] = ch;
-        next_ch();
-    }
+    while (BTWI(ch, 33, 126)) { token[len++] = ch; next_ch(); }
     token[len] = 0;
     if (strEq(token, "//")) { next_line(); goto start; }
     is_num = checkNumber(token, 10);
@@ -98,28 +95,14 @@ void next_token() {
 
 //---------------------------------------------------------------------------
 // Symbols - 'I' = INT, 'F' = Function, 'T' = Target
-typedef struct { char type, name[23]; char asmName[8]; int sz; } SYM_T;
-typedef struct { char name[32]; char *val; } STR_T;
-
-SYM_T vars[VARS_SZ];
-STR_T strings[STRS_SZ];
-int numVars, numStrings;
-
-char *varName(int i) { return vars[i].name; }
-char *asmName(int i) { return vars[i].asmName; }
-
-int findVar(char *name, char type) {
-    int i = numVars;
-    while (0 < i) {
-        if (strEq(varName(i), name)) {
-            if ((vars[i].type == type)) { return i; }
-        }
-        i = i-1;
+int findSymbol(char *name, char type) {
+    for (int i = numVars; 0 < i; i--) {
+        if (strEq(varName(i), name) && (vars[i].type == type)) { return i; }
     }
     return 0;
 }
 
-int addVar(char *name, char type) {
+int addSymbol(char *name, char type) {
     if (strlen(name) > 20) { msg(1, "name too long"); }
     int i = ++numVars;
     SYM_T *x = &vars[i];
@@ -130,15 +113,11 @@ int addVar(char *name, char type) {
     return i;
 }
 
-int addFunction(char *name) {
-    return addVar(name, 'F');
-}
-
 int genTargetSymbol() {
-    static char name[8];
     static int seq = 0;
+    char name[8];
     sprintf(name, "Tgt%d", ++seq);
-    return addVar(name, 'T');
+    return addSymbol(name, 'T');
 }
 
 int addString(char *str) {
@@ -154,12 +133,10 @@ void dumpSymbols() {
     printf("; num type size name\n");
     printf("; --- ---- ---- -----------------\n");
     for (int i = 1; i <= numVars; i++) {
-        SYM_T *x = &vars[i];
-        if (x->type == 'I') { printf("%-10s dd 0 ; %s\n", x->asmName, x->name); }
+        if (vars[i].type == 'I') { printf("%-10s dd 0 ; %s\n", asmName(i), varName(i)); }
     }
     for (int i = 1; i <= numStrings; i++) {
-        STR_T *x = &strings[i];
-        printf("%-10s db \"%s\", 0\n", x->name, x->val);
+        printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
     }
     printf("rstk       rd 256\n");
 }
@@ -176,11 +153,6 @@ enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
     , PLEQ, DECTOS, INCTOS
     , MOVAB, POPB
 };
-
-int opcodes[CODE_SZ], arg1[CODE_SZ], here;
-
-void gen(int op) { ++here; opcodes[here] = op; }
-void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
 
 void optimizeIRL() {
     int i = 1;
@@ -317,26 +289,26 @@ void winLin(int seg) {
 #else
     // Linux (32-bit)
     if (seg == 'C') {
-        char *pv = asmName(findVar("pv", 'I'));
+        char *pv = asmName(findSymbol("pv", 'I'));
         printf("\nformat ELF executable");
         printf("\n;================== code =====================");
         printf("\nsegment readable executable");
         printf("\n;================== library ==================");
         printf("\nstart:\n\tCALL init");
-        printf("\n\tCALL %s ; main", asmName(findVar("main", 'F')));
-        printf("\n\n%s: ; bye", asmName(findVar("bye", 'F')));
+        printf("\n\tCALL %s ; main", asmName(findSymbol("main", 'F')));
+        printf("\n\n%s: ; bye", asmName(findSymbol("bye", 'F')));
         printf("\n\tMOV  EAX, 1");
         printf("\n\tXOR  EBX, EBX");
         printf("\n\tINT  0x80");
 
-        printf("\n\n%s: ; puts", asmName(findVar("puts", 'F')));
+        printf("\n\n%s: ; puts", asmName(findSymbol("puts", 'F')));
         printf("\n\t; TODO: fill this in");
         printf("\n\tCALL RETtoEBP");
         printf("\n\tMOV  [%s], EAX", pv);
         printf("\n\tPOP  EAX");
         printf("\n\tJMP  RETfromEBP");
         
-        printf("\n\n%s: ; emit", asmName(findVar("emit", 'F')));
+        printf("\n\n%s: ; emit", asmName(findSymbol("emit", 'F')));
         printf("\n\tCALL RETtoEBP");
         printf("\n\tMOV  [%s], EAX", pv);
         printf("\n\tMOV  EAX, 4");
@@ -347,7 +319,7 @@ void winLin(int seg) {
         printf("\n\tPOP  EAX");
         printf("\n\tJMP  RETfromEBP");
         
-        printf("\n\n%s: ; .d", asmName(findVar(".d", 'F')));
+        printf("\n\n%s: ; .d", asmName(findSymbol(".d", 'F')));
         printf("\n\tCALL RETtoEBP");
         printf("\n\t; TODO: fill this in");
         printf("\n\tMOV  [%s], EAX", pv);
@@ -362,11 +334,11 @@ void winLin(int seg) {
     }
 #endif
     if (seg == 'S') {
-        addFunction("bye");
-        addFunction("puts");
-        addFunction("emit");
-        addFunction(".d");
-        addVar("pv", 'I');
+        addSymbol("bye", 'F');
+        addSymbol("puts", 'F');
+        addSymbol("emit", 'F');
+        addSymbol(".d", 'F');
+        addSymbol("pv", 'I');
     }
 }
 
@@ -374,7 +346,7 @@ void stringStmt() {
     char tmpStr[256], i = 0;
     next_ch();
     while (ch != '"') {
-        if (ch == EOF) { syntax_error(); }
+        if (ch == EOF) { msg(1, "syntax error"); }
         tmpStr[i++] = ch;
         next_ch();
     }
@@ -386,9 +358,9 @@ void stringStmt() {
 
 void statement() {
     if (is_num) { gen(PUSHA); gen1(LIT, int_val); return; }
-    int i = findVar(token, 'I');
+    int i = findSymbol(token, 'I');
     if (i) { gen(PUSHA); gen1(VARADDR, i); return; }
-    i = findVar(token, 'F');
+    i = findSymbol(token, 'F');
     if (i) { gen1(CALL, i); return; }
     
     if (accept("@"))          { gen(FETCH); }
@@ -423,23 +395,17 @@ void statement() {
     else if (accept("\""))    { stringStmt(); }
     else if (accept("("))     { while (!accept(")")) { next_token(); } }
     else if (accept(""))      { return; }
-    else { syntax_error(); }
+    else { msg(1, "syntax error"); }
 }
 
 void funcDef() {
     next_token();
-    gen1(DEF, addVar(token, 'F'));
+    gen1(DEF, addSymbol(token, 'F'));
     while (1) {
         next_token();
         statement();
         if (accept(";")) { return; }
     }
-}
-
-void parseDef() {
-    if (accept("var")) { next_token(); addVar(token, 'I'); }
-    else if (accept(":")) { funcDef(); }
-    else if (token[0]) { syntax_error(); }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -452,7 +418,12 @@ int main(int argc, char *argv[]) {
     }
     here = 0;
     winLin('S');
-    while (ch != EOF) { next_token(); parseDef(); }
+    while (ch != EOF) {
+        next_token();
+        if (accept("var")) { next_token(); addSymbol(token, 'I'); }
+        else if (accept(":")) { funcDef(); }
+        else if (token[0]) { msg(1, "syntax error"); }
+    }
     if (input_fp) { fclose(input_fp); }
     optimizeIRL();
     winLin('C');
