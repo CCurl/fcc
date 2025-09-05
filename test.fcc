@@ -7,7 +7,7 @@ var x
 	drop 'n' emit ;
 
 var x
-: Mil ( n--m ) 1000 * 1000 * ;
+: Mil ( n--m ) 1000 dup * * ;
 : CR 10 emit ;
 
 : main

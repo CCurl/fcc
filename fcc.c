@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "heap.h"
 
 #define VARS_SZ    500
 #define STRS_SZ    500
 #define CODE_SZ   5000
+#define HEAP_SZ   5000
 
 #define BTWI(n,l,h) ((l <= n) && (n <= h))
 #define BCASE break; case
@@ -20,6 +20,7 @@ int is_eof = 0, cur_lnum, cur_off, stk[64], sp=0;
 int numVars, numStrings;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 char token[32], cur_line[256] = {0};
+char heap[HEAP_SZ];
 SYM_T vars[VARS_SZ];
 STR_T strings[STRS_SZ];
 FILE *input_fp = NULL;
@@ -41,6 +42,14 @@ void msg(int fatal, char *s) {
     if (fatal) { fprintf(stderr, "\n%s (see output for details)\n", s); exit(1); }
 }
 
+char *hAlloc(int sz) {
+    static int hHere = 0;
+    int newHere = hHere + sz;
+    if ((sz <= 0) || (HEAP_SZ <= newHere)) { return NULL; }
+    hHere = newHere;
+    return &heap[hHere - sz];
+}
+
 //---------------------------------------------------------------------------
 // Tokens
 void next_line() {
@@ -57,14 +66,13 @@ void next_ch() {
     }
     ch = cur_line[cur_off++];
     if (ch == 9) { ch = cur_line[cur_off-1] = 32; }
-    }
+}
 
 int checkNumber(char *w, int base) {
     int isNeg = 0;
     int_val = 0;
     if ((w[0] == '\'') && (w[2] == w[0]) && (w[3] == 0)) { int_val = w[1]; return 1; }
     if (*w == '%') { ++w; base = 2; }
-    else if (*w == 'o') { ++w; base = 8; }
     else if (*w == '#') { ++w; base = 10; }
     else if (*w == '$') { ++w; base = 16; }
     if (*w == '-') { isNeg = 1; ++w; }
@@ -138,25 +146,28 @@ enum { NOTHING, VARADDR, LIT, LOADSTR, STORE, FETCH
     , DEF, CALL, RETURN
     , LT, GT, EQ, NEQ
     , PLEQ, DECTOS, INCTOS
-    , MOVAB, POPB
+    , MOVAB, POPB, TESTA
 };
 
 void optimizeIRL() {
-    int i = 1;
-    while (i <= here) {
+    for (int i = 1; i <= here; i++) {
         int op = opcodes[i], op1 = opcodes[i+1], op2 = opcodes[i+2];
         if ((op == POPA) && (op1 == PUSHA)) {
-            // printf("\n; OPTIMIZE: remove popa/pusha at %d", i);
             // NOTE: this assumes we modifying EAX next
             opcodes[i] = NOTHING;
             opcodes[i+1] = NOTHING;
         }
+        if ((op == PUSHA) && (op1 == POPB)) {
+            opcodes[i] = MOVAB;
+            opcodes[i+1] = NOTHING;
+        }
         if ((op == PUSHA) && (op2 == POPB)) {
-            // printf("\n; OPTIMIZE: remove pusha/popb at %d", i);
             opcodes[i] = MOVAB;
             opcodes[i+2] = NOTHING;
         }
-        i++;
+        if (((op == INCTOS) || (op == DECTOS)) && (op1 == TESTA)) {
+            opcodes[i+1] = NOTHING;
+        }
     }
 }
 
@@ -214,9 +225,10 @@ void genCode() {
             BCASE RETURN:  printf("\n\tJMP  RETfromEBP");
             BCASE TARGET:  printf("\n%s:", vn);
             BCASE JMP:     printf("\n\tJMP  %s", vn);
-            BCASE JMPZ:    printf("\n\tTEST EAX, EAX\n\tJZ   %s", vn);
-            BCASE JMPNZ:   printf("\n\tTEST EAX, EAX\n\tJNZ  %s", vn);
+            BCASE JMPZ:    printf("\n\tJZ   %s", vn);
+            BCASE JMPNZ:   printf("\n\tJNZ  %s", vn);
             BCASE MOVAB:   printf("\n\tMOV  EBX, EAX");
+            BCASE TESTA:   printf("\n\tTEST EAX, EAX");
         }
     }
 }
@@ -354,12 +366,12 @@ void statement() {
     else if (accept("!"))     { gen(POPB); gen(STORE); gen(POPA); }
     else if (accept("1+"))    { gen(INCTOS); }
     else if (accept("1-"))    { gen(DECTOS); }
-    else if (accept("if"))    { push(genTargetSymbol()); gen1(JMPZ, stk[sp]); }
+    else if (accept("if"))    { push(genTargetSymbol()); gen(TESTA); gen1(JMPZ, stk[sp]); }
     else if (accept("else"))  { printf("\n\t; WARNING - ELSE not yet implemented"); }
     else if (accept("then"))  { gen1(TARGET, pop()); }
     else if (accept("begin")) { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
-    else if (accept("while")) { gen1(JMPNZ, pop()); }
-    else if (accept("until")) { gen1(JMPZ, pop()); }
+    else if (accept("while")) { gen(TESTA); gen1(JMPNZ, pop()); }
+    else if (accept("until")) { gen(TESTA); gen1(JMPZ, pop()); }
     else if (accept("again")) { gen1(JMP, pop()); }
     else if (accept("exit"))  { gen(RETURN); }
     else if (accept("dup"))   { gen(PUSHA); }

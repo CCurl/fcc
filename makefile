@@ -14,8 +14,8 @@ LDLIBS   := -lm
 
 all: fcc
 
-fcc: fcc.c heap.c heap.h
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o fcc fcc.c heap.c $(LDLIBS)
+fcc: fcc.c
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o fcc fcc.c $(LDLIBS)
 	ls -l fcc
 
 bin: all

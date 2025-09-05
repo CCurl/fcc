@@ -83,11 +83,11 @@ Tgt1:
 
 F12: ; Mil
 	CALL RETtoEBP
-	MOV  EBX, EAX
+	PUSH EAX
 	MOV  EAX, 1000
+	MOV  EBX, EAX
 	IMUL EAX, EBX
-	MOV  EBX, EAX
-	MOV  EAX, 1000
+	POP  EBX
 	IMUL EAX, EBX
 	JMP  RETfromEBP
 
@@ -121,7 +121,6 @@ F14: ; main
 	MOV  EAX, [EAX]
 Tgt2:
 	DEC  EAX
-	TEST EAX, EAX
 	JNZ  Tgt2
 	POP  EAX
 	CALL F3 ; emit
