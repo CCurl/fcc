@@ -1,34 +1,28 @@
-app := tc
-
 ARCH ?= 32
 CXX := clang
-CFLAGS := -m$(ARCH) -O3 -D IS_LINUX
-
-srcfiles := $(shell find . -name "*.c")
-incfiles := $(shell find . -name "*.h")
-LDLIBS   := -lm
+CFLAGS := -m$(ARCH) -O3
 
 # -------------------------------------------------------------------
 # Targets
 # -------------------------------------------------------------------
 
-all: fcc
+all: fcl
 
-fcc: fcc.c
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o fcc fcc.c $(LDLIBS)
-	ls -l fcc
+fcl: fcl.c
+	$(CXX) $(CFLAGS) -o fcl fcl.c
+	ls -l fcl
 
 bin: all
-	cp -u -p fcc ~/bin/
+	cp -u -p fcl ~/bin/
 
 # -------------------------------------------------------------------
 # Scripts
 # -------------------------------------------------------------------
 
 clean:
-	rm -f fcc
+	rm -f fcl
 
-test: fcc test.fcc
-	./fcc test.fcc > test.asm
+test: fcl test.fth
+	./fcl test.fth > test.asm
 	fasm test.asm test
 	chmod +x test

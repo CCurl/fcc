@@ -1,8 +1,8 @@
-# FCC Documentation
+# FCL Documentation
 
 ## Overview
 
-**FCC (Forth Compiler)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
+**FCL (Forth Compiler)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
 
 ## File Structure
 
@@ -175,21 +175,10 @@ AND OR XOR          // Bitwise operations
 
 ### 5. Platform-Specific Code Generation
 
-#### Windows (32-bit)
-- Uses WIN32 API calls
-- FASM PE format
-- Standard library functions via `msvcrt.dll`
-
 #### Linux (32-bit)
 - Direct system calls
 - ELF executable format
 - Minimal runtime dependencies
-
-#### Built-in Functions
-- **`bye`** - Program termination
-- **`puts`** - String output
-- **`emit`** - Character output
-- **`.d`** - Number output
 
 ### 6. Utility Functions
 
@@ -197,13 +186,14 @@ AND OR XOR          // Bitwise operations
 - **`strEq(char *s1, char *s2)`** - String comparison
 - **`accept(char *str)`** - Token matching
 - **`msg(int fatal, char *s)`** - Error reporting with source location
-- **`hAlloc(int sz)`** - A heap-based memory allocation system
+- **`hAlloc(int sz)`** - Heap-based memory allocation
 
 ## Usage
 
 ### Command Line
 ```bash
-fcc source.fcc > output.asm    # Compile file to assembly code
+make fcl                       # Compile the fcl program
+fcl source.fth > output.asm    # Compile file to assembly code
 fasm output.asm program        # Compile assembly code from above
 chmod +x program               # Make the program executable
 ```
@@ -240,7 +230,7 @@ var limit
 2. **Parse Declarations** - Process `var` declarations and function definitions
 3. **IRL Generation** - Convert Forth constructs to intermediate representation
 4. **Optimization** - Perform peephole optimizations on IRL
-5. **Assembly Generation** - Output platform-specific assembly code
+5. **Assembly Generation** - Output assembly code for Linux
 6. **Symbol Dump** - Output variable and string declarations
 
 ## Limitations and Features
@@ -248,21 +238,16 @@ var limit
 ### Current Limitations
 - Minimal error checking
 - No floating-point support
-- Limited control structure nesting
-- No user-defined data types
 - Basic optimization only
+- Heap has a fixed size (HEAP_SZ)
+- Symbol table has a fixed size (VARS_SZ)
+- String table has a fixed size (STRS_SZ)
+- IRL table has a fixed size (CODE_SZ)
 
 ### Key Features
 - Multi-base number literals
-- Cross-platform code generation
 - Pedagogical clarity
 - No dependencies
 - Stack-based execution model
-
-## Memory Management
-
-- String literals are heap-allocated
-- Symbol table has fixed size limits
-- Stack-based execution with return stack
 
 This compiler serves as an example of a minimal but functional compiler implementation, demonstrating core compiler concepts in a clear and understandable way.
