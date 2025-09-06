@@ -1,13 +1,25 @@
 var base
 
 var (a)
-: a@ (a) @ ;    : a! (a) ! ;
-: @a a@ @ ;     : c@a a@ c@ ;    : c@a+ c@a 1 (a) +! ;
-: !a a@ ! ;     : c!a a@ c! ;    : c!a+ c!a 1 (a) +! ;
-: c!a- c!a a@ 1- a! ;
+: a@ (a) @ ;
+: a! (a) ! ;
+
+// : @a  a@ @ ;
+// : !a  a@ ! ;
+// : @a+ @a  a@ 4 + a! ;
+// : !a+ !a  a@ 4 + a! ;
+// : @a- @a  a@ 4 - a! ;
+// : !a- !a  a@ 4 - a! ;
+
+: c@a   a@ c@ ;
+: c!a   a@ c! ;
+: c@a+  c@a  a@ 1+ a! ;
+: c!a+  c!a  a@ 1+ a! ;
+: c@a-  c@a  a@ 1- a! ;
+: c!a-  c!a  a@ 1- a! ;
 
 var _em
-: emit    _em c! 0 ->reg2  _em ->reg3  1 ->reg4  4 sys ;
+: emit    _em c!  0 ->reg2  _em ->reg3  1 ->reg4  4 sys ;
 : bye   0 ->reg2 1 sys ;
 
 var _zt

@@ -262,8 +262,6 @@ void winLin(int seg) {
         printf("\n;=============================================");
         printf("\nintbuf      rb 12 ; for .d");
     }
-    if (seg == 'S') {
-    }
 }
 
 void stringStmt() {
@@ -349,7 +347,6 @@ int main(int argc, char *argv[]) {
         if (!input_fp) { msg(1, "cannot open source file!"); }
     }
     here = 0;
-    winLin('S');
     while (ch != EOF) {
         next_token();
         if (accept("var")) { next_token(); addSymbol(token, 'I'); }
@@ -371,6 +368,5 @@ int main(int argc, char *argv[]) {
         printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
     }
     printf("rstk       rd 256\n");
-    winLin('I');
     return 0;
 }
