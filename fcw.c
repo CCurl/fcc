@@ -240,7 +240,6 @@ void genCode() {
 //---------------------------------------------------------------------------
 // Parser / code generator.
 void winLin(int seg) {
-#ifdef _WIN32
     // Windows (32-bit)
     if (seg == 'C') {
         char *pv = asmName(findVar("pv", 'I'));
@@ -289,91 +288,6 @@ void winLin(int seg) {
         printf("\nimport msvcrt, printf,'printf', getch,'_getch'");
         printf("\nimport kernel32, ExitProcess,'ExitProcess'\n");
     }
-#else
-    // Linux (32-bit)
-    if (seg == 'C') {
-        char *pv = asmName(findSymbol("pv", 'I'));
-        printf("\nformat ELF executable");
-        printf("\n;================== code =====================");
-        printf("\nsegment readable executable");
-        printf("\n;================== library ==================");
-        printf("\nstart:\n\tCALL init");
-        printf("\n\tCALL %s ; main", asmName(findSymbol("main", 'F')));
-        printf("\n\n%s: ; bye", asmName(findSymbol("bye", 'F')));
-        printf("\n\tMOV  EAX, 1");
-        printf("\n\tXOR  EBX, EBX");
-        printf("\n\tINT  0x80");
-
-        printf("\n\n%s: ; puts", asmName(findSymbol("puts", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV  ECX, EAX");
-        printf("\n\tMOV  EDX, EAX");
-        printf("\n.strlen:");
-        printf("\n\tCMP  BYTE [EDX], 0");
-        printf("\n\tJE   .done");
-        printf("\n\tINC  EDX");
-        printf("\n\tJMP  .strlen");
-        printf("\n.done:");
-        printf("\n\tSUB  EDX, ECX");
-        printf("\n\tMOV  EAX, 4");
-        printf("\n\tMOV  EBX, 1");
-        printf("\n\tINT  0x80");
-        printf("\n\tPOP  EAX");
-        printf("\n\tJMP  RETfromEBP");
-        
-        printf("\n\n%s: ; emit", asmName(findSymbol("emit", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV  [%s], EAX", pv);
-        printf("\n\tMOV  EAX, 4");
-        printf("\n\tMOV  EBX, 0");
-        printf("\n\tLEA  ECX, [%s]", pv);
-        printf("\n\tMOV  EDX, 1");
-        printf("\n\tINT  0x80");
-        printf("\n\tPOP  EAX");
-        printf("\n\tJMP  RETfromEBP");
-        
-        printf("\n\n%s: ; .d", asmName(findSymbol(".d", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        // Convert integer in EAX to string in [intbuf]");
-        printf("\n\tMOV  [%s], 0", pv);
-        printf("\n\tMOV  ECX, intbuf+11");
-        printf("\n\tCMP  EAX, 0");
-        printf("\n\tJGE  .convert");
-        printf("\n\tNEG  EAX");
-        printf("\n\tINC  [%s]", pv);
-        printf("\n.convert:");
-        printf("\n\tMOV  EBX, 10");
-        printf("\n.repeat:");
-        printf("\n\tMOV  EDX, 0");
-        printf("\n\tDIV  EBX");
-        printf("\n\tADD  DL, '0'");
-        printf("\n\tDEC  ECX");
-        printf("\n\tMOV  [ECX], DL");
-        printf("\n\tTEST EAX, EAX");
-        printf("\n\tJNZ  .repeat");
-        // Print the string
-        printf("\n\tMOV  EAX, [%s]", pv);
-        printf("\n\tTEST EAX, EAX");
-        printf("\n\tJZ   .pr");
-        printf("\n\tDEC  ECX");
-        printf("\n\tMOV  BYTE [ECX], '-'");
-        printf("\n.pr:");
-        printf("\n\tMOV  EAX, 4");
-        printf("\n\tMOV  EBX, 1");
-        printf("\n\tMOV  EDX, intbuf+11");
-        printf("\n\tSUB  EDX, ECX");
-        printf("\n\tINT  0x80");
-        printf("\n\tPOP  EAX");
-        printf("\n\tJMP  RETfromEBP");
-        printf("\n;=============================================");
-    }
-    else if (seg == 'D') {
-        printf("\n;================== data =====================");
-        printf("\nsegment readable writeable");
-        printf("\n;=============================================");
-        printf("\nintbuf      rb 12 ; for .d");
-    }
-#endif
     if (seg == 'S') {
         addSymbol("bye", 'F');
         addSymbol("puts", 'F');
