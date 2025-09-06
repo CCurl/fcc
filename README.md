@@ -2,7 +2,7 @@
 
 ## Overview
 
-**FCL (Forth Compiler)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
+**FCL (Forth Compiler for Linux)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
 
 ## File Structure
 
@@ -13,11 +13,10 @@
 
 ## Architecture
 
-The compiler follows a traditional four-phase approach:
-1. **Lexical Analysis** - Tokenization of input stream
-2. **Parsing** - Generation of Intermediate Representation Language (IRL)
-3. **Optimization** - Perform some basic optimizations on the IRL
-3. **Code Generation** - Assembly code output with platform-specific support
+The compiler follows a streamlined three-phase approach:
+1. **IRL Generation** - Parse source and generate Intermediate Representation Language (IRL)
+2. **Optimization** - Perform peephole optimizations on the IRL
+3. **Code Generation** - Output assembly code for Linux x86
 
 ### Constants and Configuration
 
@@ -87,31 +86,30 @@ The compiler uses an internal instruction set:
 - `POPB` - Pop to second register
 
 **Memory Operations:**
-- `VARADDR` - Load variable address
-- `STORE`, `FETCH` - Memory store/load
+- `STORE`, `FETCH` - 32-bit memory store/load
+- `CSTORE`, `CFETCH` - 8-bit (byte) memory store/load
 - `LOADSTR` - Load string address
 
 **Arithmetic:**
 - `ADD`, `SUB`, `MULT`, `DIVIDE` - Basic arithmetic
-- `LT`, `GT`, `EQ`, `NEQ` `TESTA` - Comparisons
+- `DIVMOD` - Division with both quotient and remainder
+- `LT`, `GT`, `EQ`, `NEQ` - Comparisons
 - `AND`, `OR`, `XOR` - Bitwise operations
 
 **Control Flow:**
-- `TESTA` - Test the accumulator against itself
+- `TESTA` - Test accumulator against zero
 - `JMP`, `JMPZ`, `JMPNZ` - Conditional/unconditional jumps
 - `TARGET` - Jump target labels
 - `DEF`, `CALL`, `RETURN` - Function definition and calls
+
+**Register Operations:**
+- `MOVAB`, `MOVAC`, `MOVAD` - Copy accumulator to EBX, ECX, EDX
+- `SYS` - System call interrupt
 
 **Special:**
 - `LIT` - Literal values
 - `PLEQ` - Plus-equals operation (`+!`)
 - `INCTOS`, `DECTOS` - Increment/decrement top of stack
-- `MOVAB` - Copy the accumulator to the second register
-
-#### Code Generation
-- **`gen(int op)`** - Emit single opcode
-- **`gen1(int op, int a1)`** - Emit opcode with one argument
-- **`optimizeIRL()`** - Performs peephole optimizations
 
 ### 4. Parser and Code Generator
 
@@ -152,9 +150,29 @@ swap                // Swap top two
 over                // Copy second to top
 ```
 
+**Memory Operations:**
+```forth
+@                   // Fetch 32-bit value from address
+!                   // Store 32-bit value to address
+c@                  // Fetch 8-bit (byte) value from address  
+c!                  // Store 8-bit (byte) value to address
++!                  // Add to memory location
+1+ 1-               // Increment/decrement TOS
+```
+
+**Register and System Operations:**
+```forth
+->reg1              // Copy TOS to EAX (no-op, already in EAX)
+->reg2              // Copy TOS to EBX
+->reg3              // Copy TOS to ECX
+->reg4              // Copy TOS to EDX
+sys                 // Execute system call (INT 0x80)
+```
+
 **Arithmetic and Logic:**
 ```forth
 + - * /             // Basic arithmetic
+/mod                // Division with quotient and remainder
 < = <> >            // Comparisons
 AND OR XOR          // Bitwise operations
 ```
@@ -165,37 +183,24 @@ AND OR XOR          // Bitwise operations
 ( ... )             // In-line comment
 ```
 
-**Memory Operations:**
-```forth
-@                   // Fetch from address
-!                   // Store to address
-+!                  // Add to memory location
-1+ 1-               // Increment/decrement TOS
-```
-
 ### 5. Platform-Specific Code Generation
 
 #### Linux (32-bit)
-- Direct system calls
+- Direct system calls via `sys` command
 - ELF executable format
-- Minimal runtime dependencies
-
-### 6. Utility Functions
-
-- **`push(int x)`, `pop()`** - Internal stack for parser state
-- **`strEq(char *s1, char *s2)`** - String comparison
-- **`accept(char *str)`** - Token matching
-- **`msg(int fatal, char *s)`** - Error reporting with source location
-- **`hAlloc(int sz)`** - Heap-based memory allocation
+- No external library dependencies
+- Custom function call convention using EBP stack
 
 ## Usage
 
 ### Command Line
 ```bash
 make fcl                       # Compile the fcl program
-fcl source.fth > output.asm    # Compile file to assembly code
-fasm output.asm program        # Compile assembly code from above
+fcl > output.asm               # Compile fcl.fth to assembly code
+fcl myfile.fth > output.asm    # Compile specific file to assembly code
+fasm output.asm program        # Assemble to executable using FASM
 chmod +x program               # Make the program executable
+./program                      # Run the program
 ```
 
 ### Error Handling
@@ -214,40 +219,40 @@ var limit
 : main
   0 counter !
   1 mil limit !
-  10 begin
-    dup .d
+  begin
+    counter @ .d " " puts
     increment
     counter @ limit @ =
   until
-  drop
-  bye
+  "Done!" puts
 ;
 ```
 
 ## Compilation Process
 
-1. **Initialization** - Set up symbol table with built-in functions
-2. **Parse Declarations** - Process `var` declarations and function definitions
-3. **IRL Generation** - Convert Forth constructs to intermediate representation
-4. **Optimization** - Perform peephole optimizations on IRL
-5. **Assembly Generation** - Output assembly code for Linux
-6. **Symbol Dump** - Output variable and string declarations
+1. **Input Processing** - Read source file (defaults to `fcl.fth` if no argument provided)
+2. **IRL Generation** - Parse declarations and generate intermediate representation
+3. **Optimization** - Perform peephole optimizations on IRL
+4. **Code Generation** - Output ELF assembly with startup code and runtime support
+5. **Symbol Output** - Generate variable and string declarations in data section
 
 ## Limitations and Features
 
 ### Current Limitations
-- Minimal error checking
+- No built-in I/O functions (must use system calls via `sys`)
+- Limited error checking and recovery
 - No floating-point support
-- Basic optimization only
-- Heap has a fixed size (HEAP_SZ)
-- Symbol table has a fixed size (VARS_SZ)
-- String table has a fixed size (STRS_SZ)
-- IRL table has a fixed size (CODE_SZ)
+- Fixed-size tables and heap
+- Basic optimization only (peephole)
+- `else` clause not yet implemented
 
 ### Key Features
-- Multi-base number literals
-- Pedagogical clarity
-- No dependencies
-- Stack-based execution model
+- Byte and word memory access (`c@`, `c!`, `@`, `!`)
+- Direct system call support via register operations
+- Multi-base number literals (binary, decimal, hex, character)
+- Integrated optimization pass
+- Compact, self-contained compiler
+- Clean separation of IRL generation and code emission
+- Stack-based execution model with register access
 
 This compiler serves as an example of a minimal but functional compiler implementation, demonstrating core compiler concepts in a clear and understandable way.

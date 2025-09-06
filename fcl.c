@@ -241,29 +241,7 @@ void genCode() {
 }
 
 //---------------------------------------------------------------------------
-// Parser / code generator.
-void winLin(int seg) {
-    if (seg == 'C') {
-        char *pv = asmName(findSymbol("pv", 'I'));
-        printf("\nformat ELF executable");
-        printf("\n;================== code =====================");
-        printf("\nsegment readable executable");
-        printf("\n;================== library ==================");
-        printf("\nstart:\n\tLEA EBP, [rstk]");
-        printf("\n\tCALL %s ; main", asmName(findSymbol("main", 'F')));
-        printf("\n\tMOV  EAX, 1");
-        printf("\n\tXOR  EBX, EBX");
-        printf("\n\tINT  0x80");
-        printf("\n;=============================================");
-    }
-    else if (seg == 'D') {
-        printf("\n;================== data =====================");
-        printf("\nsegment readable writeable");
-        printf("\n;=============================================");
-        printf("\nintbuf      rb 12 ; for .d");
-    }
-}
-
+// Parser
 void stringStmt() {
     char tmpStr[256], i = 0;
     next_ch();
@@ -328,36 +306,44 @@ void statement() {
     else { msg(1, "syntax error"); }
 }
 
-void funcDef() {
-    next_token();
-    gen1(DEF, addSymbol(token, 'F'));
-    while (1) {
-        next_token();
-        statement();
-        if (accept(";")) { return; }
-    }
-}
-
-/*---------------------------------------------------------------------------*/
-int main(int argc, char *argv[]) {
-    char *fn = (argc > 1) ? argv[1] : NULL;
-    input_fp = stdin;
-    if (fn) {
-        input_fp = fopen(fn, "rt");
-        if (!input_fp) { msg(1, "cannot open source file!"); }
-    }
+//---------------------------------------------------------------------------
+// Top level
+void generateIRL() {
     here = 0;
     while (ch != EOF) {
         next_token();
         if (accept("var")) { next_token(); addSymbol(token, 'I'); }
-        else if (accept(":")) { funcDef(); }
+        else if (accept(":")) {
+            next_token();
+            gen1(DEF, addSymbol(token, 'F'));
+            while (1) {
+                next_token();
+                statement();
+                if (accept(";")) { break; }
+            }
+        }
         else if (token[0]) { msg(1, "syntax error"); }
     }
-    if (input_fp) { fclose(input_fp); }
-    optimizeIRL();
-    winLin('C');
+}
+
+void generateCode() {
+    printf("\nformat ELF executable");
+    printf("\n;================== code =====================");
+    printf("\nsegment readable executable");
+    printf("\n;================== library ==================");
+    printf("\nstart:\n\tLEA EBP, [rstk]");
+    printf("\n\tCALL %s ; main", asmName(findSymbol("main", 'F')));
+    printf("\n\tMOV  EAX, 1");
+    printf("\n\tXOR  EBX, EBX");
+    printf("\n\tINT  0x80");
+    printf("\n;=============================================");
+
     genCode();
-    winLin('D');
+
+    printf("\n;================== data =====================");
+    printf("\nsegment readable writeable");
+    printf("\n;=============================================");
+    printf("\nintbuf      rb 12 ; for .d");
     printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
     printf("; num type size name\n");
     printf("; --- ---- ---- -----------------\n");
@@ -368,5 +354,16 @@ int main(int argc, char *argv[]) {
         printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
     }
     printf("rstk       rd 256\n");
+}
+
+//---------------------------------------------------------------------------
+int main(int argc, char *argv[]) {
+    char *fn = (argc > 1) ? argv[1] : "fcl.fth";
+    input_fp = fopen(fn, "rt");
+    if (!input_fp) { msg(1, "cannot open source file!"); }
+    generateIRL();
+    if (input_fp) { fclose(input_fp); }
+    optimizeIRL();
+    generateCode();
     return 0;
 }
