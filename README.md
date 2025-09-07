@@ -1,8 +1,8 @@
-# FCL Documentation
+# FCC Documentation
 
 ## Overview
 
-**FCL (Forth Compiler for Linux)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
+**FCC (Forth Compiler)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
 
 ## File Structure
 
@@ -10,6 +10,9 @@
 - **License**: MIT License (c) 2025
 - **Language**: C
 - **Target**: 32-bit x86 Assembly (FASM format)
+
+- **fcl**: Forth compiler for Linux systems
+- **fcw**: Forth compiler for Windows systems
 
 ## Architecture
 
@@ -195,9 +198,10 @@ AND OR XOR          // Bitwise operations
 
 ### Command Line
 ```bash
+cd fcl                         # Change directory
 make fcl                       # Compile the fcl program
-fcl > output.asm               # Compile fcl.fth to assembly code
-fcl myfile.fth > output.asm    # Compile specific file to assembly code
+./fcl > output.asm             # Compile fcl.fth to assembly code
+./fcl myfile.fth > output.asm  # Compile specific file to assembly code
 fasm output.asm program        # Assemble to executable using FASM
 chmod +x program               # Make the program executable
 ./program                      # Run the program

@@ -1,9 +1,8 @@
-fcc
-test
+/.vs
 /Debug
 /Release
 /fcc.vcxproj.user
-/test.exe
-/.vs
+test
+test.exe
 /enc_temp_folder
-fcl
+fcl/fcl
