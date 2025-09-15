@@ -338,7 +338,7 @@ void generateIRL() {
 }
 
 void generateCode() {
-    printf("\nformat ELF executable");
+    printf("format ELF executable");
     printf("\n;================== code =====================");
     printf("\nsegment readable executable");
     printf("\n;================== library ==================");
