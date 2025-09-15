@@ -6,6 +6,7 @@
 
 #define VARS_SZ    500
 #define STRS_SZ    500
+#define LOCS_SZ    500
 #define CODE_SZ   5000
 #define HEAP_SZ   5000
 
@@ -17,7 +18,7 @@ typedef struct { char name[32]; char *val; } STR_T;
 
 int ch = ' ', is_num, int_val;
 int is_eof = 0, cur_lnum, cur_off, stk[64], sp=0;
-int numVars, numStrings;
+int numVars, numStrings, hHere = 0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 char token[32], cur_line[256] = {0};
 char heap[HEAP_SZ];
@@ -43,7 +44,6 @@ void msg(int fatal, char *s) {
 }
 
 char *hAlloc(int sz) {
-    static int hHere = 0;
     int newHere = hHere + sz;
     if ((sz <= 0) || (HEAP_SZ <= newHere)) { return NULL; }
     hHere = newHere;
@@ -149,6 +149,7 @@ enum { NOTHING, VARADDR, LIT, LOADSTR
     , PLEQ, DECTOS, INCTOS
     , MOVAB, MOVAC, MOVAD, SYS
     , POPB, TESTA
+    , ADDEDI, SUBEDI, EDIOFF
 };
 
 void optimizeIRL() {
@@ -236,6 +237,9 @@ void genCode() {
             BCASE MOVAC:   printf("\n\tMOV  ECX, EAX");
             BCASE MOVAD:   printf("\n\tMOV  EDX, EAX");
             BCASE SYS:     printf("\n\tINT  0x80");
+            BCASE ADDEDI:  printf("\n\tADD  EDI, %d", a1);
+            BCASE SUBEDI:  printf("\n\tSUB  EDI, %d", a1);
+            BCASE EDIOFF:  printf("\n\tLEA  EAX, [EDI+%d]", a1);
         }
     }
 }
@@ -300,6 +304,13 @@ void statement() {
     else if (accept("->reg3")) { gen(MOVAC); gen(POPA); }
     else if (accept("->reg4")) { gen(MOVAD); gen(POPA); }
     else if (accept("sys"))    { gen(SYS);   gen(POPA); }
+    else if (accept("+locs"))  { gen1(ADDEDI, 20); }
+    else if (accept("-locs"))  { gen1(SUBEDI, 20); }
+    else if (accept("l1"))     { gen(PUSHA); gen1(EDIOFF,  0); }
+    else if (accept("l2"))     { gen(PUSHA); gen1(EDIOFF,  4); }
+    else if (accept("l3"))     { gen(PUSHA); gen1(EDIOFF,  8); }
+    else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 12); }
+    else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 16); }
     else if (accept("\""))     { stringStmt(); }
     else if (accept("("))      { while (!accept(")")) { next_token(); } }
     else if (accept(""))       { return; }
@@ -331,7 +342,7 @@ void generateCode() {
     printf("\n;================== code =====================");
     printf("\nsegment readable executable");
     printf("\n;================== library ==================");
-    printf("\nstart:\n\tLEA EBP, [rstk]");
+    printf("\nstart:\n\tLEA EBP, [rstk]\n\tLEA EDI, [locs]");
     printf("\n\tCALL %s ; main", asmName(findSymbol("main", 'F')));
     printf("\n\tMOV  EAX, 1");
     printf("\n\tXOR  EBX, EBX");
@@ -344,7 +355,9 @@ void generateCode() {
     printf("\nsegment readable writeable");
     printf("\n;=============================================");
     printf("\nintbuf      rb 12 ; for .d");
-    printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
+    printf("\n\n; code: %d entries, %d used", CODE_SZ, here);
+    printf("\n; heap: %d bytes, %d used", HEAP_SZ, hHere);
+    printf("\n; symbols: %d entries, %d used", VARS_SZ, numVars);
     printf("; num type size name\n");
     printf("; --- ---- ---- -----------------\n");
     for (int i = 1; i <= numVars; i++) {
@@ -353,6 +366,7 @@ void generateCode() {
     for (int i = 1; i <= numStrings; i++) {
         printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
     }
+    printf("locs       rd %d\n", LOCS_SZ);
     printf("rstk       rd 256\n");
 }
 

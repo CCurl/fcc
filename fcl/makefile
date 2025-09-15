@@ -26,3 +26,5 @@ test: fcl test.fth
 	./fcl test.fth > test.asm
 	fasm test.asm test
 	chmod +x test
+	./test
+	

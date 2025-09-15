@@ -107,9 +107,14 @@ The compiler uses an internal instruction set:
 - `TARGET` - Jump target labels
 - `DEF`, `CALL`, `RETURN` - Function definition and calls
 
-**Register Operations:**
+
+**Register and Pointer Operations:**
 - `MOVAB`, `MOVAC`, `MOVAD` - Copy accumulator to EBX, ECX, EDX
 - `SYS` - System call interrupt
+
+**Locals**
+- `ADDEDI`, `SUBEDI` - Add or free locals (5 at a time)
+- `EDIOFF` - Load the address of a local into EAX
 
 **Special:**
 - `LIT` - Literal values
@@ -165,15 +170,18 @@ c!                  // Store 8-bit (byte) value to address
 1+ 1-               // Increment/decrement TOS
 ```
 
-**Register and System Operations:**
+
+**Register, Locals, and System Operations:**
 ```forth
-->reg1              // Copy TOS to EAX (no-op, already in EAX)
+->reg1              // Copy TOS to EAX (no-op, EAX is TOS)
 ->reg2              // Copy TOS to EBX
 ->reg3              // Copy TOS to ECX
 ->reg4              // Copy TOS to EDX
 sys                 // Execute system call (INT 0x80)
++locs               // Add 20 to EDI (allocate 5 locals)
+-locs               // Add 20 to EDI (free last 5 locals)
+l1..l5              // Push addr of local #x to the stack
 ```
-
 **Arithmetic and Logic:**
 ```forth
 + - * /             // Basic arithmetic
@@ -195,6 +203,7 @@ AND OR XOR          // Bitwise operations
 - ELF executable format
 - No external library dependencies
 - Custom function call convention using EBP stack
+- Uses EDI for pointer arithmetic and a `locs` array for local storage
 
 ## Usage
 
@@ -251,14 +260,16 @@ var limit
 - Fixed-size tables and heap
 - Basic optimization only (peephole)
 - `else` clause not yet implemented
+- Maximum of 20 nexted locals (400 bytes)
 
 ### Key Features
 - Byte and word memory access (`c@`, `c!`, `@`, `!`)
 - Direct system call support via register operations
+- Pointer arithmetic and local array access via EDI and `locs`
 - Multi-base number literals (binary, decimal, hex, character)
 - Integrated optimization pass
 - Compact, self-contained compiler
 - Clean separation of IRL generation and code emission
-- Stack-based execution model with register access
+- Stack-based execution model with register and pointer access
 
 This compiler serves as an example of a minimal but functional compiler implementation, demonstrating core compiler concepts in a clear and understandable way.
