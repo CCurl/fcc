@@ -1,6 +1,7 @@
- var base
-
+var base 
+var stk 50 allot
 var (a)
+
 : a@ (a) @ ;
 : a! (a) ! ;
 
@@ -31,34 +32,42 @@ var _zt
 : space 32 emit ;
 : negate 0 swap - ;
 
-var buf var _b var _b var #n var _dot
+: strlen ( a -- n )
+	dup c@ 0= if drop 0 exit then
+	+locs a@ l3 !  dup a! l1 !
+	begin c@a+ while
+	a@ l1 - 1+ l3 @ a! -locs ;
+
+var buf 3 allot
+var #n
+var _dot
 : (.) ( n -- )
 	a@ _dot ! #n a! 0 dup c!a- c!a-
 	dup 0 < if 1 #n c! negate then
 	begin
-		base @ /mod swap '0' + c!a-
+		base @ /mod swap '0' + c!a- dup
 	while drop
-	#n @ if '-' c!a- then
+	#n c@ if '-' c!a- then
 	a@ 1+ ztype _dot @ a! ;
 : . (.) space ;
 
 var x
 : t0 cr 't' emit . ;
-: t1  " hello" ztype ;
-: t4   4 t0 dup 0= if 'y' emit exit then 'n' emit ;
+: t1   1 t0 " hello" ztype ;
+: t2   2 t0 1234 " hello" strlen . . ;
+: t4   4 t0 dup 0= if 'n' emit exit then 'y' emit ;
 : t5   5 t0 buf a! 'h' c!a+ 'i' c!a+ 0 c!a buf ztype space ;
 : t6   6 t0 666 222 ->reg2  333 ->reg3  444 ->reg4 . " (should print 666)" ztype ;
 : t7   7 t0 " test ztype ..." ztype ;
 : t8   8 t0 3344 . -3344 . ;
 : t9   9 t0 999 123 100 /mod . . . ;
 : t10 10 t0 'g' x c! x c@ dup . emit ;
-: t11 11 t0 's' emit 1000 Mil dup (.) begin 1- while drop 'e' emit ;
+: t11 11 t0 's' emit 1000 Mil dup (.) begin 1- dup while 'e' emit ;
 : t12 12 t0 +locs " -l3-" l3 ! +locs 17 l3 ! l3 @ . -locs l3 @ ztype -locs ;
 : t999 " bye" ztype cr bye ;
 
 : main
 	10 base !
-	t1 0 t4 1 t4 t5 t6 t7 t8 t9 t10 t11 t12
+	t1 t2 0 t4 1 t4 t5 t6 t7 t8 t9 t10 t11 t12
 	cr t999 cr
-	" still here? " ztype
-;
+	" still here? " ztype ;

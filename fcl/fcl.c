@@ -38,8 +38,8 @@ void gen(int op) { ++here; opcodes[here] = op; }
 void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
 
 void msg(int fatal, char *s) {
-    printf("\n%s at(%d, %d)\n%s", s, cur_lnum, cur_off, cur_line);
-    for (int i = 2; i < cur_off; i++) { printf(" "); } printf("^");
+    fprintf(stderr, "\n%s at(%d, %d)\n%s", s, cur_lnum, cur_off, cur_line);
+    for (int i = 2; i < cur_off; i++) { fprintf(stderr, " "); } fprintf(stderr, "^");
     if (fatal) { fprintf(stderr, "\n%s (see output for details)\n", s); exit(1); }
 }
 
@@ -115,7 +115,7 @@ int addSymbol(char *name, char type) {
     int i = ++numVars;
     SYM_T *x = &vars[i];
     x->type = type;
-    x->sz = 4;
+    x->sz = 1;
     strcpy(x->name, name);
     sprintf(x->asmName, "%c%d", type, i);
     return i;
@@ -277,8 +277,8 @@ void statement() {
     else if (accept("else"))   { printf("\n\t; WARNING - ELSE not yet implemented"); }
     else if (accept("then"))   { gen1(TARGET, pop()); }
     else if (accept("begin"))  { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
-    else if (accept("while"))  { gen(TESTA); gen1(JMPNZ, pop()); }
-    else if (accept("until"))  { gen(TESTA); gen1(JMPZ, pop()); }
+    else if (accept("while"))  { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
+    else if (accept("until"))  { gen(TESTA); gen(POPA); gen1(JMPZ, pop()); }
     else if (accept("again"))  { gen1(JMP, pop()); }
     else if (accept("exit"))   { gen(RETURN); }
     else if (accept("dup"))    { gen(PUSHA); }
@@ -319,11 +319,23 @@ void statement() {
 
 //---------------------------------------------------------------------------
 // Top level
+//---------------------------------------------------------------------------
+void doVar() {
+    next_token();
+    addSymbol(token, 'I');
+    next_token();
+    if (is_num) {
+        int sz = int_val;
+        next_token();
+        if (accept("allot")) { next_token(); vars[numVars].sz = sz; }
+    }
+}
+
 void generateIRL() {
     here = 0;
+    next_token();
     while (ch != EOF) {
-        next_token();
-        if (accept("var")) { next_token(); addSymbol(token, 'I'); }
+        if (accept("var")) { doVar(); continue; }
         else if (accept(":")) {
             next_token();
             gen1(DEF, addSymbol(token, 'F'));
@@ -334,6 +346,7 @@ void generateIRL() {
             }
         }
         else if (token[0]) { msg(1, "syntax error"); }
+        next_token();
     }
 }
 
@@ -361,7 +374,9 @@ void generateCode() {
     printf("; num type size name\n");
     printf("; --- ---- ---- -----------------\n");
     for (int i = 1; i <= numVars; i++) {
-        if (vars[i].type == 'I') { printf("%-10s dd 0 ; %s\n", asmName(i), varName(i)); }
+        if (vars[i].type == 'I') {
+            printf("%-10s dd %d dup(0) ; %s\n", asmName(i), vars[i].sz, varName(i));
+        }
     }
     for (int i = 1; i <= numStrings; i++) {
         printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
