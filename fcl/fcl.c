@@ -150,13 +150,15 @@ enum { NOTHING, VARADDR, LIT, LOADSTR
     , MOVAB, MOVAC, MOVAD, SYS
     , POPB, TESTA
     , ADDEDI, SUBEDI, EDIOFF
+    , AFET, ASTO, AINC, ADEC
 };
 
-void optimizeIRL() {
-    // return; // Currently disabled
+int optimizeIRL() {
+    // return 0; // Currently disabled
+    int changes = 0;
     for (int i = 1; i <= here; i++) {
         int op = opcodes[i], op1 = opcodes[i+1], op2 = opcodes[i+2];
-        if ((op == POPA) && (op1 == PUSHA)) {
+        if ((op == PUSHA) && (op1 == POPA)) {
             // NOTE: this assumes we modifying EAX next
             opcodes[i] = NOTHING;
             opcodes[i+1] = NOTHING;
@@ -169,10 +171,25 @@ void optimizeIRL() {
             opcodes[i] = MOVAB;
             opcodes[i+2] = NOTHING;
         }
+        if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
+            opcodes[i] = NOTHING;
+            opcodes[i+2] = NOTHING;
+        }
         if (((op == INCTOS) || (op == DECTOS)) && (op1 == TESTA)) {
             opcodes[i+1] = NOTHING;
         }
     }
+    for (int i = here; 1 <= i; i--) {
+        if (opcodes[i] == NOTHING) {
+            changes++;
+            for (int j = i; j < here; j++) {
+                opcodes[j] = opcodes[j+1];
+                arg1[j] = arg1[j+1];
+            }
+            here--;
+        }
+    }
+    return changes;
 }
 
 void genStartupCode() {
@@ -240,6 +257,10 @@ void genCode() {
             BCASE ADDEDI:  printf("\n\tADD  EDI, %d", a1);
             BCASE SUBEDI:  printf("\n\tSUB  EDI, %d", a1);
             BCASE EDIOFF:  printf("\n\tLEA  EAX, [EDI+%d]", a1);
+            BCASE AFET:    printf("\n\tMOV  EAX, [A]");
+            BCASE ASTO:    printf("\n\tMOV  [A], EAX");
+            BCASE AINC:    printf("\n\tINC  [A]");
+            BCASE ADEC:    printf("\n\tDEC  [A]");
         }
     }
 }
@@ -304,14 +325,19 @@ void statement() {
     else if (accept("->reg3")) { gen(MOVAC); gen(POPA); }
     else if (accept("->reg4")) { gen(MOVAD); gen(POPA); }
     else if (accept("sys"))    { gen(SYS);   gen(POPA); }
-    else if (accept("+locs"))  { gen1(ADDEDI, 20); }
-    else if (accept("-locs"))  { gen1(SUBEDI, 20); }
-    else if (accept("l1"))     { gen(PUSHA); gen1(EDIOFF,  0); }
-    else if (accept("l2"))     { gen(PUSHA); gen1(EDIOFF,  4); }
-    else if (accept("l3"))     { gen(PUSHA); gen1(EDIOFF,  8); }
-    else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 12); }
-    else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 16); }
-    else if (accept("\""))     { stringStmt(); }
+    else if (accept("+locs"))  { gen1(ADDEDI, 24); }
+    else if (accept("-locs"))  { gen1(SUBEDI, 24); }
+    else if (accept("l0"))     { gen(PUSHA); gen1(EDIOFF,  0); }
+    else if (accept("l1"))     { gen(PUSHA); gen1(EDIOFF,  4); }
+    else if (accept("l2"))     { gen(PUSHA); gen1(EDIOFF,  8); }
+    else if (accept("l3"))     { gen(PUSHA); gen1(EDIOFF, 12); }
+    else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 16); }
+    else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 20); }
+    else if (accept("s\""))    { stringStmt(); }
+    else if (accept("a@"))     { gen(PUSHA); gen(AFET); }
+    else if (accept("a!"))     { gen(ASTO); gen(POPA); }
+    else if (accept("a+"))     { gen(AINC); }
+    else if (accept("a-"))     { gen(ADEC); }
     else if (accept("("))      { while (!accept(")")) { next_token(); } }
     else if (accept(""))       { return; }
     else { msg(1, "syntax error"); }
@@ -364,25 +390,23 @@ void generateCode() {
 
     genCode();
 
-    printf("\n;================== data =====================");
+    printf("\n\n;================== data =====================");
     printf("\nsegment readable writeable");
     printf("\n;=============================================");
-    printf("\nintbuf      rb 12 ; for .d");
     printf("\n\n; code: %d entries, %d used", CODE_SZ, here);
     printf("\n; heap: %d bytes, %d used", HEAP_SZ, hHere);
     printf("\n; symbols: %d entries, %d used", VARS_SZ, numVars);
-    printf("; num type size name\n");
-    printf("; --- ---- ---- -----------------\n");
+    for (int i = 1; i <= numStrings; i++) {
+        printf("\n%-10s db \"%s\", 0", strings[i].name, strings[i].val);
+    }
     for (int i = 1; i <= numVars; i++) {
         if (vars[i].type == 'I') {
-            printf("%-10s dd %d dup(0) ; %s\n", asmName(i), vars[i].sz, varName(i));
+            printf("\n%-10s rd %3d ; %s", asmName(i), vars[i].sz, varName(i));
         }
     }
-    for (int i = 1; i <= numStrings; i++) {
-        printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
-    }
-    printf("locs       rd %d\n", LOCS_SZ);
-    printf("rstk       rd 256\n");
+    printf("\nA          rd   1");
+    printf("\nrstk       rd 256");
+    printf("\nlocs       rd %d\n", LOCS_SZ);
 }
 
 //---------------------------------------------------------------------------
@@ -392,7 +416,7 @@ int main(int argc, char *argv[]) {
     if (!input_fp) { msg(1, "cannot open source file!"); }
     generateIRL();
     if (input_fp) { fclose(input_fp); }
-    optimizeIRL();
+    while (optimizeIRL()) { }
     generateCode();
     return 0;
 }
