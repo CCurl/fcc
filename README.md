@@ -28,6 +28,7 @@ The compiler follows a streamlined three-phase approach:
 ```c
 #define VARS_SZ    500    // Maximum number of variables/symbols
 #define STRS_SZ    500    // Maximum number of string literals
+#define LOCS_SZ    500    // Size of local storage array
 #define CODE_SZ   5000    // Maximum number of IRL instructions
 #define HEAP_SZ   5000    // Maximum number of characters in the HEAP
 ```
@@ -110,11 +111,13 @@ The compiler uses an internal instruction set:
 
 **Register and Pointer Operations:**
 - `MOVAB`, `MOVAC`, `MOVAD` - Copy accumulator to EBX, ECX, EDX
+- `ADDEDI`, `SUBEDI` - Add/subtract constant to EDI (pointer arithmetic)
+- `EDIOFF` - Load EDI+offset into EAX
 - `SYS` - System call interrupt
 
-**Locals**
-- `ADDEDI`, `SUBEDI` - Add or free locals (5 at a time)
-- `EDIOFF` - Load the address of a local into EAX
+**A-Register Operations:**
+- `AFET`, `ASTO` - Fetch from/store to A register variable
+- `AINC`, `ADEC` - Increment/decrement A register variable
 
 **Special:**
 - `LIT` - Literal values
@@ -127,7 +130,8 @@ The compiler uses an internal instruction set:
 
 **Variables:**
 ```forth
-var myVar           // Declare integer variable
+var myVar           // Declare integer variable (default size 1)
+var buffer 100 allot // Declare integer variable with size 100
 ```
 
 **Functions:**
@@ -178,9 +182,22 @@ c!                  // Store 8-bit (byte) value to address
 ->reg3              // Copy TOS to ECX
 ->reg4              // Copy TOS to EDX
 sys                 // Execute system call (INT 0x80)
-+locs               // Add 20 to EDI (allocate 5 locals)
--locs               // Add 20 to EDI (free last 5 locals)
-l1..l5              // Push addr of local #x to the stack
++locs               // Add 24 to EDI (allocate 6 locals)
+-locs               // Subtract 24 from EDI (free last 6 locals)
+l0..l5              // Push addr of local #x to the stack
+```
+
+**A-Register Operations:**
+```forth
+a@                  // Fetch value from A register variable
+a!                  // Store value to A register variable
+a+                  // Increment A register variable
+a-                  // Decrement A register variable
+```
+
+**String Literals:**
+```forth
+s" Hello"           // Push string address to stack
 ```
 **Arithmetic and Logic:**
 ```forth
@@ -204,6 +221,8 @@ AND OR XOR          // Bitwise operations
 - No external library dependencies
 - Custom function call convention using EBP stack
 - Uses EDI for pointer arithmetic and a `locs` array for local storage
+- Enhanced optimization with iterative peephole passes
+- A-register variable for quick access operations
 
 ## Usage
 
@@ -225,21 +244,28 @@ chmod +x program               # Make the program executable
 
 ### Example Program
 ```forth
-var counter
-var limit
+var limit 100 allot
+var _em
 
-: increment counter @ 1+ counter ! ;
 : mil ( n--m ) 1000 dup * * ;
+: emit  ( c-- ) _em c! _em ->reg3  0 ->reg2  1 ->reg4  4 sys ;
+
+: ztype ( a-- ) +l  a!
+	begin
+		a@ c@ a+ dup 0 = 
+		if drop -l exit then
+		emit
+	again ;
 
 : main
   0 counter !
   1 mil limit !
   begin
-    counter @ .d " " puts
-    increment
-    counter @ limit @ =
+    counter @ a!    // Store counter in A register
+    a@ s" Counter: " ztype
+    a+ a@ limit @ >
   until
-  "Done!" puts
+  s" Done!" ztype
 ;
 ```
 
@@ -247,26 +273,31 @@ var limit
 
 1. **Input Processing** - Read source file (defaults to `fcl.fth` if no argument provided)
 2. **IRL Generation** - Parse declarations and generate intermediate representation
-3. **Optimization** - Perform peephole optimizations on IRL
+3. **Iterative Optimization** - Repeatedly perform peephole optimizations until no changes
 4. **Code Generation** - Output ELF assembly with startup code and runtime support
-5. **Symbol Output** - Generate variable and string declarations in data section
+5. **Symbol Output** - Generate variable and string declarations with proper sizing in data section
 
 ## Limitations and Features
 
 ### Current Limitations
 - No built-in I/O functions (must use system calls via `sys`)
-- Limited error checking and recovery
+- Limited error checking and recovery (errors output to stderr)
 - No floating-point support
 - Fixed-size tables and heap
-- Basic optimization only (peephole)
 - `else` clause not yet implemented
-- Maximum of 20 nexted locals (400 bytes)
 
 ### Key Features
 - Byte and word memory access (`c@`, `c!`, `@`, `!`)
 - Direct system call support via register operations
 - Pointer arithmetic and local array access via EDI and `locs`
+- Variable-sized variable declarations with `allot`
+- A-register variable for optimized frequent access
 - Multi-base number literals (binary, decimal, hex, character)
+- Iterative optimization passes for better code generation
+- Compact, self-contained compiler
+- Clean separation of IRL generation and code emission
+- Stack-based execution model with register and pointer access
+- Enhanced error reporting with stderr output
 - Integrated optimization pass
 - Compact, self-contained compiler
 - Clean separation of IRL generation and code emission
