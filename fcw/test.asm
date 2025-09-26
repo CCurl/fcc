@@ -3,6 +3,7 @@ include 'win32ax.inc'
 
 ;=============================================
 section '.code' code readable executable
+;=============================================
 start:
 	LEA  EBP, [rstk]
 	LEA  EDI, [locs]
@@ -15,19 +16,15 @@ RETtoEBP:    ; Move the return addr to the [EBP] stack
 	POP  DWORD [EBP]
 	PUSH EDX
 	RET
-
 ;---------------------------------------------
 RETfromEBP:  ; Perform a return from the [EBP] stack
 	PUSH DWORD [EBP]
 	SUB  EBP, 4
 	RET
-;=============================================
 ;================== library (Windows) ==================
 F1: ; bye
 	PUSH 0
 	CALL [ExitProcess]
-
-;---------------------------------------------
 ;---------------------------------------------
 F2: ; emit
 	CALL RETtoEBP
@@ -35,6 +32,7 @@ F2: ; emit
 	cinvoke printf, "%c", [I55]
 	POP EAX
 	JMP RETfromEBP
+;=============================================
 
 F4: ; @a
 	CALL RETtoEBP
@@ -141,7 +139,7 @@ F15: ; c!a-
 	DEC  [A]
 	JMP  RETfromEBP
 
-F16: ; +l
+F16: ; +L
 	CALL RETtoEBP
 	ADD  EDI, 24
 	PUSH EAX
@@ -152,7 +150,7 @@ F16: ; +l
 	POP  EAX
 	JMP  RETfromEBP
 
-F17: ; -l
+F17: ; -L
 	CALL RETtoEBP
 	PUSH EAX
 	LEA  EAX, [EDI+0]
@@ -164,7 +162,7 @@ F17: ; -l
 
 F19: ; ztype
 	CALL RETtoEBP
-	CALL F16 ; +l
+	CALL F16 ; +L
 	MOV  [A], EAX
 	POP  EAX
 Tgt1:
@@ -181,7 +179,7 @@ Tgt1:
 	POP  EAX
 	JZ   Tgt2
 	POP  EAX
-	CALL F17 ; -l
+	CALL F17 ; -L
 	JMP  RETfromEBP
 Tgt2:
 	CALL F2 ; emit
@@ -235,7 +233,7 @@ F26: ; negate
 
 F29: ; (.)
 	CALL RETtoEBP
-	CALL F16 ; +l
+	CALL F16 ; +L
 	PUSH EAX
 	LEA  EAX, [I28] ; #n
 	MOV  [A], EAX
@@ -311,7 +309,7 @@ Tgt6:
 	MOV  EAX, [A]
 	INC  EAX
 	CALL F19 ; ztype
-	CALL F17 ; -l
+	CALL F17 ; -L
 	JMP  RETfromEBP
 
 F34: ; .
@@ -334,13 +332,7 @@ F35: ; strlen
 	MOV  EAX, 0
 	JMP  RETfromEBP
 Tgt7:
-	ADD  EDI, 24
-	PUSH EAX
-	MOV  EAX, [A]
-	MOV  EBX, EAX
-	LEA  EAX, [EDI+12]
-	MOV  [EAX], EBX
-	POP  EAX
+	CALL F16 ; +L
 	PUSH EAX
 	MOV  [A], EAX
 	POP  EAX
@@ -362,12 +354,7 @@ Tgt8:
 	XCHG EAX, EBX
 	SUB  EAX, EBX
 	DEC  EAX
-	PUSH EAX
-	LEA  EAX, [EDI+12]
-	MOV  EAX, [EAX]
-	MOV  [A], EAX
-	POP  EAX
-	SUB  EDI, 24
+	CALL F17 ; -L
 	JMP  RETfromEBP
 
 F39: ; t0
@@ -649,14 +636,14 @@ F54: ; main
 section '.data' data readable writeable
 ;---------------------------------------------
 
-; code: 5000 entries, 505 used
+; code: 5000 entries, 494 used
 ; heap: 5000 bytes, 76 used
 ; symbols: 500 entries, 55 used
 S1         db "hello world!", 0
 S2         db "hello", 0
 S3         db "(should print 666)", 0
 S4         db "test ztype ...", 0
-S5         db "-l3-", 0
+S5         db "-L3-", 0
 S6         db "bye", 0
 S7         db "still here? s", 0
 I3         rd   1 ; base
@@ -669,9 +656,9 @@ A          rd   1
 rstk       rd 256
 locs       rd 500
 
-;====================================
+;=============================================
 section '.idata' import data readable
-; ====================================
+;---------------------------------------------
 library msvcrt, 'msvcrt.dll', kernel32, 'kernel32.dll'
 import msvcrt, printf,'printf', getch,'_getch'
 import kernel32, ExitProcess,'ExitProcess'

@@ -8,14 +8,14 @@ var base
 : c@a+  c@a  a+ ;			: c!a+  c!a  a+ ;
 : c@a-  c@a  a- ;			: c!a-  c!a  a- ;
 
-: +l +locs a@ l0 ! ;
-: -l l0 @  a! -locs ;
+: +L +locs  a@ l0 ! ;
+: -L l0 @ a!  -locs ;
 
 var _em
-: ztype ( a-- ) +l  a!
+: ztype ( a-- ) +L  a!
 	begin
 		c@a+ dup 0 = 
-		if drop -l exit then
+		if drop -L exit then
 		emit
 	again ;
 
@@ -29,7 +29,7 @@ var _em
 var buf 3 allot
 var #n
 : (.) ( n -- )
-	+l #n a! 0 dup c!a- c!a-
+	+L #n a! 0 dup c!a- c!a-
 	dup 0 < if 1 #n c! negate then
 	begin
 		base @ /mod swap '0' + 
@@ -37,14 +37,14 @@ var #n
 		c!a- dup
 	while drop
 	#n c@ if '-' c!a- then
-	a@ 1+ ztype -l ;
+	a@ 1+ ztype -L ;
 : . (.) space ;
 
 : strlen ( a -- n )
 	dup c@ 0= if drop 0 exit then
-	+locs  a@ l3 !  dup a! l1 !
+	+L  dup a! l1 !
 	begin c@a+ while
-	a@ l1 @ - 1-  l3 @ a!  -locs ;
+	a@ l1 @ - 1-  -L ;
 
 var x
 : t0 cr 't' emit . ;
@@ -58,7 +58,7 @@ var x
 : t9   9 t0 999 123 100 /mod . . . ;
 : t10 10 t0 'g' x c! x c@ dup . emit ;
 : t11 11 t0 's' emit 1000 Mil dup (.) begin 1- dup while 'e' emit ;
-: t12 12 t0 +locs s" -l3-" l3 ! +locs 17 l3 ! l3 @ . -locs l3 @ ztype -locs ;
+: t12 12 t0 +locs s" -L3-" l3 ! +locs 17 l3 ! l3 @ . -locs l3 @ ztype -locs ;
 : t999 s" bye" ztype cr bye ;
 
 : main
