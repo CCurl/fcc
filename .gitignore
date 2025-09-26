@@ -1,8 +1,13 @@
 /.vs
-/Debug
-/Release
 /fcc.vcxproj.user
 test
 test.exe
 /enc_temp_folder
 fcl/fcl
+Debug/
+fcc/Debug/
+Release/
+fcc/Release/
+/fcw/.vs/fcc
+/fcw/fcc.vcxproj.user
+/fcw/test.bin

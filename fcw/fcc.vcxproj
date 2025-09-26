@@ -147,14 +147,11 @@
     <None Include="make.bat" />
     <None Include="README.md" />
     <None Include="test.asm" />
-    <None Include="test.fcc" />
+    <None Include="test.fth" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fcc.c" />
-    <ClCompile Include="heap.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="heap.h" />
+    <ClCompile Include="fcw.c" />
+    <ClCompile Include="system.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

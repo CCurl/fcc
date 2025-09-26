@@ -6,6 +6,7 @@
 
 #define VARS_SZ    500
 #define STRS_SZ    500
+#define LOCS_SZ    500
 #define CODE_SZ   5000
 #define HEAP_SZ   5000
 
@@ -14,12 +15,14 @@
 
 typedef struct { char type, name[23]; char asmName[8]; int sz; } SYM_T;
 typedef struct { char name[32]; char *val; } STR_T;
+extern void genStartupCode();
+extern void genSysSpecific(int seg);
 
 int ch = ' ', is_num, int_val;
-int is_eof = 0, cur_lnum, cur_off, stk[64], sp=0;
-int numVars, numStrings;
+int is_eof = 0, cur_lnum, cur_off, stk[64], sp = 0;
+int numVars, numStrings, hHere = 0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
-char token[32], cur_line[256] = {0};
+char token[32], cur_line[256] = { 0 };
 char heap[HEAP_SZ];
 SYM_T vars[VARS_SZ];
 STR_T strings[STRS_SZ];
@@ -37,13 +40,12 @@ void gen(int op) { ++here; opcodes[here] = op; }
 void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
 
 void msg(int fatal, char *s) {
-    printf("\n%s at(%d, %d)\n%s", s, cur_lnum, cur_off, cur_line);
-    for (int i = 2; i < cur_off; i++) { printf(" "); } printf("^");
+    fprintf(stderr, "\n%s at(%d, %d)\n%s", s, cur_lnum, cur_off, cur_line);
+    for (int i = 2; i < cur_off; i++) { fprintf(stderr, " "); } fprintf(stderr, "^");
     if (fatal) { fprintf(stderr, "\n%s (see output for details)\n", s); exit(1); }
 }
 
 char *hAlloc(int sz) {
-    static int hHere = 0;
     int newHere = hHere + sz;
     if ((sz <= 0) || (HEAP_SZ <= newHere)) { return NULL; }
     hHere = newHere;
@@ -65,7 +67,7 @@ void next_ch() {
         if (is_eof) { ch = EOF; return; }
     }
     ch = cur_line[cur_off++];
-    if (ch == 9) { ch = cur_line[cur_off-1] = 32; }
+    if (ch == 9) { ch = cur_line[cur_off - 1] = 32; }
 }
 
 int checkNumber(char *w, int base) {
@@ -84,7 +86,7 @@ int checkNumber(char *w, int base) {
         else if (BTWI(c, 'a', 'f')) { digit = c - 'a' + 10; }
         else { return 0; }
         if (digit >= base) { return 0; }
-        int_val = (int_val * base) + digit;
+        int_val = (int_val  *base) + digit;
     }
     if (isNeg) { int_val = -int_val; }
     return 1;
@@ -92,7 +94,7 @@ int checkNumber(char *w, int base) {
 
 void next_token() {
     int len;
-    start:
+start:
     len = 0;
     while (BTWI(ch, 1, 32)) { next_ch(); }
     while (BTWI(ch, 33, 126)) { token[len++] = ch; next_ch(); }
@@ -115,7 +117,7 @@ int addSymbol(char *name, char type) {
     int i = ++numVars;
     SYM_T *x = &vars[i];
     x->type = type;
-    x->sz = 4;
+    x->sz = 1;
     strcpy(x->name, name);
     sprintf(x->asmName, "%c%d", type, i);
     return i;
@@ -138,7 +140,8 @@ int addString(char *str) {
 
 //---------------------------------------------------------------------------
 // IRL
-enum { NOTHING, VARADDR, LIT, LOADSTR
+enum {
+    NOTHING, VARADDR, LIT, LOADSTR
     , STORE, FETCH, CSTORE, CFETCH
     , ADD, SUB, MULT, DIVIDE, DIVMOD
     , AND, OR, XOR
@@ -147,156 +150,110 @@ enum { NOTHING, VARADDR, LIT, LOADSTR
     , DEF, CALL, RETURN
     , LT, GT, EQ, NEQ
     , PLEQ, DECTOS, INCTOS
-    , MOVAB, POPB, TESTA
+    , MOVAB, MOVAC, MOVAD, SYS
+    , POPB, TESTA
+    , ADDEDI, SUBEDI, EDIOFF
+    , AFET, ASTO, AINC, ADEC
 };
 
-void optimizeIRL() {
+int optimizeIRL() {
+    // return 0; // Currently disabled
+    int changes = 0;
     for (int i = 1; i <= here; i++) {
-        int op = opcodes[i], op1 = opcodes[i+1], op2 = opcodes[i+2];
-        if ((op == POPA) && (op1 == PUSHA)) {
+        int op = opcodes[i], op1 = opcodes[i + 1], op2 = opcodes[i + 2];
+        if ((op == PUSHA) && (op1 == POPA)) {
             // NOTE: this assumes we modifying EAX next
             opcodes[i] = NOTHING;
-            opcodes[i+1] = NOTHING;
+            opcodes[i + 1] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == POPB)) {
             opcodes[i] = MOVAB;
-            opcodes[i+1] = NOTHING;
+            opcodes[i + 1] = NOTHING;
         }
         if ((op == PUSHA) && (op2 == POPB)) {
             opcodes[i] = MOVAB;
-            opcodes[i+2] = NOTHING;
+            opcodes[i + 2] = NOTHING;
+        }
+        if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
+            opcodes[i] = NOTHING;
+            opcodes[i + 2] = NOTHING;
         }
         if (((op == INCTOS) || (op == DECTOS)) && (op1 == TESTA)) {
-            opcodes[i+1] = NOTHING;
+            opcodes[i + 1] = NOTHING;
         }
     }
-}
-
-void genStartupCode() {
-    printf("\ninit:\n\tLEA EBP, [rstk]\n\tRET\n");
-
-    printf("\nRETtoEBP:    ; Move the return addr to the [EBP] stack");
-    printf("\n\tPOP  EDX ; NB: EDX is destroyed");
-    printf("\n\tADD  EBP, 4");
-    printf("\n\tPOP  DWORD [EBP]");
-    printf("\n\tPUSH EDX");
-    printf("\n\tRET\n");
-
-    printf("\nRETfromEBP:  ; Perform a return from the [EBP] stack");
-    printf("\n\tPUSH DWORD [EBP]");
-    printf("\n\tSUB  EBP, 4");
-    printf("\n\tRET");
-    printf("\n;=============================================");
+    for (int i = here; 1 <= i; i--) {
+        if (opcodes[i] == NOTHING) {
+            changes++;
+            for (int j = i; j < here; j++) {
+                opcodes[j] = opcodes[j + 1];
+                arg1[j] = arg1[j + 1];
+            }
+            here--;
+        }
+    }
+    return changes;
 }
 
 void genCode() {
-    genStartupCode();
     for (int i = 1; i <= here; i++) {
         int op = opcodes[i];
         int a1 = arg1[i];
-        char *vn = varName(a1), *an = asmName(a1);
+        char *vn = varName(a1),  *an = asmName(a1);
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
         switch (op) {
-            case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
-            BCASE LIT:     printf("\n\tMOV  EAX, %d", a1);
-            BCASE PUSHA:   printf("\n\tPUSH EAX"); // DUP
-            BCASE POPA:    printf("\n\tPOP  EAX"); // DROP
-            BCASE POPB:    printf("\n\tPOP  EBX");
-            BCASE SWAP:    printf("\n\tXCHG EAX, [ESP]");
-            BCASE SP4:     printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
-            BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", strings[a1].name);
-            BCASE STORE:   printf("\n\tMOV  [EAX], EBX");
-            BCASE CSTORE:  printf("\n\tMOV  [EAX], BL");
-            BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
-            BCASE CFETCH:  printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
-            BCASE PLEQ:    printf("\n\tADD  [EAX], EBX");
-            BCASE DECTOS:  printf("\n\tDEC  EAX");
-            BCASE INCTOS:  printf("\n\tINC  EAX");
-            BCASE ADD:     printf("\n\tADD  EAX, EBX");
-            BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
-            BCASE MULT:    printf("\n\tIMUL EAX, EBX");
-            BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
-            BCASE DIVMOD:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
-            BCASE AND:     printf("\n\tAND  EAX, EBX");
-            BCASE OR:      printf("\n\tOR   EAX, EBX");
-            BCASE XOR:     printf("\n\tXOR  EAX, EBX");
-            BCASE LT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
-            BCASE GT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
-            BCASE EQ:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
-            BCASE NEQ:     printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
-            BCASE DEF:     printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
-            BCASE CALL:    printf("\n\tCALL %s ; %s", an, vn);
-            BCASE RETURN:  printf("\n\tJMP  RETfromEBP");
-            BCASE TARGET:  printf("\n%s:", vn);
-            BCASE JMP:     printf("\n\tJMP  %s", vn);
-            BCASE JMPZ:    printf("\n\tJZ   %s", vn);
-            BCASE JMPNZ:   printf("\n\tJNZ  %s", vn);
-            BCASE MOVAB:   printf("\n\tMOV  EBX, EAX");
-            BCASE TESTA:   printf("\n\tTEST EAX, EAX");
+        case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
+            BCASE LIT : printf("\n\tMOV  EAX, %d", a1);
+            BCASE PUSHA : printf("\n\tPUSH EAX"); // DUP
+            BCASE POPA : printf("\n\tPOP  EAX"); // DROP
+            BCASE POPB : printf("\n\tPOP  EBX");
+            BCASE SWAP : printf("\n\tXCHG EAX, [ESP]");
+            BCASE SP4 : printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
+            BCASE LOADSTR : printf("\n\tLEA  EAX, [%s]", strings[a1].name);
+            BCASE STORE : printf("\n\tMOV  [EAX], EBX");
+            BCASE CSTORE : printf("\n\tMOV  [EAX], BL");
+            BCASE FETCH : printf("\n\tMOV  EAX, [EAX]");
+            BCASE CFETCH : printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
+            BCASE PLEQ : printf("\n\tADD  [EAX], EBX");
+            BCASE DECTOS : printf("\n\tDEC  EAX");
+            BCASE INCTOS : printf("\n\tINC  EAX");
+            BCASE ADD : printf("\n\tADD  EAX, EBX");
+            BCASE SUB : printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
+            BCASE MULT : printf("\n\tIMUL EAX, EBX");
+            BCASE DIVIDE : printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
+            BCASE DIVMOD : printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
+            BCASE AND : printf("\n\tAND  EAX, EBX");
+            BCASE OR : printf("\n\tOR   EAX, EBX");
+            BCASE XOR : printf("\n\tXOR  EAX, EBX");
+            BCASE LT : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
+            BCASE GT : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
+            BCASE EQ : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
+            BCASE NEQ : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
+            BCASE DEF : printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
+            BCASE CALL : printf("\n\tCALL %s ; %s", an, vn);
+            BCASE RETURN : printf("\n\tJMP  RETfromEBP");
+            BCASE TARGET : printf("\n%s:", vn);
+            BCASE JMP : printf("\n\tJMP  %s", vn);
+            BCASE JMPZ : printf("\n\tJZ   %s", vn);
+            BCASE JMPNZ : printf("\n\tJNZ  %s", vn);
+            BCASE TESTA : printf("\n\tTEST EAX, EAX");
+            BCASE MOVAB : printf("\n\tMOV  EBX, EAX");
+            BCASE MOVAC : printf("\n\tMOV  ECX, EAX");
+            BCASE MOVAD : printf("\n\tMOV  EDX, EAX");
+            BCASE SYS : printf("\n\tINT  0x80");
+            BCASE ADDEDI : printf("\n\tADD  EDI, %d", a1);
+            BCASE SUBEDI : printf("\n\tSUB  EDI, %d", a1);
+            BCASE EDIOFF : printf("\n\tLEA  EAX, [EDI+%d]", a1);
+            BCASE AFET : printf("\n\tMOV  EAX, [A]");
+            BCASE ASTO : printf("\n\tMOV  [A], EAX");
+            BCASE AINC : printf("\n\tINC  [A]");
+            BCASE ADEC : printf("\n\tDEC  [A]");
         }
     }
 }
 
 //---------------------------------------------------------------------------
-// Parser / code generator.
-void winLin(int seg) {
-    // Windows (32-bit)
-    if (seg == 'C') {
-        char *pv = asmName(findVar("pv", 'I'));
-        printf("format PE console");
-        printf("\ninclude 'win32ax.inc'\n");
-        printf("\n; ======================================= ");
-        printf("\nsection '.code' code readable executable");
-        printf("\n;=======================================*/");
-        printf("\nstart:\n\tCALL init");
-        printf("\n\tCALL %s\n", asmName(findVar("main", 'F')));
-        printf("\n;================== library ==================");
-        printf("\n%s:\n\tPUSH 0\n\tCALL [ExitProcess]\n", asmName(findVar("bye", 'F')));
-        printf("\n;=============================================");
-        printf("\n%s: ; puts", asmName(findVar("puts", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tcinvoke printf, \"%s\", [%s]", "%s", pv);
-        printf("\n\tPOP EAX");
-        printf("\n\tJMP RETfromEBP");
-        
-        printf("\n\n%s: ; emit", asmName(findVar("emit", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tcinvoke printf, \"%s\", [%s]", "%c", pv);
-        printf("\n\tPOP EAX");
-        printf("\n\tJMP RETfromEBP");
-
-        printf("\n\n%s: ; .d", asmName(findVar(".d", 'F')));
-        printf("\n\tCALL RETtoEBP");
-        printf("\n\tMOV [%s], EAX", pv);
-        printf("\n\tcinvoke printf, \"%s\", [%s]", "%d", pv);
-        printf("\n\tPOP EAX");
-        printf("\n\tJMP RETfromEBP");
-        printf("\n;=============================================");
-    }
-    else if (seg == 'D') {
-        printf("\n\n;================== data =====================");
-        printf("\nsection '.data' data readable writeable");
-        printf("\n;=============================================");
-    }
-    else if (seg == 'I') {
-        printf("\n;====================================");
-        printf("\nsection '.idata' import data readable");
-        printf("\n; ====================================");
-        printf("\nlibrary msvcrt, 'msvcrt.dll', kernel32, 'kernel32.dll'");
-        printf("\nimport msvcrt, printf,'printf', getch,'_getch'");
-        printf("\nimport kernel32, ExitProcess,'ExitProcess'\n");
-    }
-    if (seg == 'S') {
-        addSymbol("bye", 'F');
-        addSymbol("puts", 'F');
-        addSymbol("emit", 'F');
-        addSymbol(".d", 'F');
-        addSymbol("pv", 'I');
-    }
-}
-
+// Parser
 void stringStmt() {
     char tmpStr[256], i = 0;
     next_ch();
@@ -317,86 +274,128 @@ void statement() {
     if (i) { gen(PUSHA); gen1(VARADDR, i); return; }
     i = findSymbol(token, 'F');
     if (i) { gen1(CALL, i); return; }
-    
-    if (accept("@"))          { gen(FETCH); }
-    else if (accept("c@"))    { gen(CFETCH); }
-    else if (accept("!"))     { gen(POPB); gen(STORE); gen(POPA); }
-    else if (accept("c!"))    { gen(POPB); gen(CSTORE); gen(POPA); }
-    else if (accept("1+"))    { gen(INCTOS); }
-    else if (accept("1-"))    { gen(DECTOS); }
-    else if (accept("if"))    { push(genTargetSymbol()); gen(TESTA); gen1(JMPZ, stk[sp]); }
-    else if (accept("else"))  { printf("\n\t; WARNING - ELSE not yet implemented"); }
-    else if (accept("then"))  { gen1(TARGET, pop()); }
+
+    if (accept("@")) { gen(FETCH); }
+    else if (accept("c@")) { gen(CFETCH); }
+    else if (accept("!")) { gen(POPB); gen(STORE); gen(POPA); }
+    else if (accept("c!")) { gen(POPB); gen(CSTORE); gen(POPA); }
+    else if (accept("1+")) { gen(INCTOS); }
+    else if (accept("1-")) { gen(DECTOS); }
+    else if (accept("if")) { push(genTargetSymbol()); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
+    else if (accept("else")) { printf("\n\t; WARNING - ELSE not yet implemented"); }
+    else if (accept("then")) { gen1(TARGET, pop()); }
     else if (accept("begin")) { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
-    else if (accept("while")) { gen(TESTA); gen1(JMPNZ, pop()); }
-    else if (accept("until")) { gen(TESTA); gen1(JMPZ, pop()); }
+    else if (accept("while")) { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
+    else if (accept("until")) { gen(TESTA); gen(POPA); gen1(JMPZ, pop()); }
     else if (accept("again")) { gen1(JMP, pop()); }
-    else if (accept("exit"))  { gen(RETURN); }
-    else if (accept("dup"))   { gen(PUSHA); }
-    else if (accept("drop"))  { gen(POPA); }
-    else if (accept("swap"))  { gen(SWAP); }
-    else if (accept("over"))  { gen(PUSHA); gen(SP4); }
-    else if (accept(";"))     { gen(RETURN); }
-    else if (accept("+!"))    { gen(POPB); gen(PLEQ); gen(POPA); }
-    else if (accept("+"))     { gen(POPB); gen(ADD); }
-    else if (accept("-"))     { gen(POPB); gen(SUB); }
-    else if (accept("*"))     { gen(POPB); gen(MULT); }
-    else if (accept("/mod"))  { gen(POPB); gen(DIVMOD); }
-    else if (accept("/"))     { gen(POPB); gen(DIVIDE); }
-    else if (accept("<"))     { gen(POPB); gen(LT); }
-    else if (accept("="))     { gen(POPB); gen(EQ); }
-    else if (accept("<>"))    { gen(POPB); gen(NEQ); }
-    else if (accept(">"))     { gen(POPB); gen(GT); }
-    else if (accept("AND"))   { gen(POPB); gen(AND); }
-    else if (accept("OR"))    { gen(POPB); gen(OR); }
-    else if (accept("XOR"))   { gen(POPB); gen(XOR); }
-    else if (accept("\""))    { stringStmt(); }
-    else if (accept("("))     { while (!accept(")")) { next_token(); } }
-    else if (accept(""))      { return; }
+    else if (accept("exit")) { gen(RETURN); }
+    else if (accept("dup")) { gen(PUSHA); }
+    else if (accept("drop")) { gen(POPA); }
+    else if (accept("swap")) { gen(SWAP); }
+    else if (accept("over")) { gen(PUSHA); gen(SP4); }
+    else if (accept(";")) { gen(RETURN); }
+    else if (accept("+!")) { gen(POPB); gen(PLEQ); gen(POPA); }
+    else if (accept("+")) { gen(POPB); gen(ADD); }
+    else if (accept("-")) { gen(POPB); gen(SUB); }
+    else if (accept("*")) { gen(POPB); gen(MULT); }
+    else if (accept("/mod")) { gen(POPB); gen(DIVMOD); }
+    else if (accept("/")) { gen(POPB); gen(DIVIDE); }
+    else if (accept("<")) { gen(POPB); gen(LT); }
+    else if (accept("=")) { gen(POPB); gen(EQ); }
+    else if (accept("<>")) { gen(POPB); gen(NEQ); }
+    else if (accept(">")) { gen(POPB); gen(GT); }
+    else if (accept("AND")) { gen(POPB); gen(AND); }
+    else if (accept("OR")) { gen(POPB); gen(OR); }
+    else if (accept("XOR")) { gen(POPB); gen(XOR); }
+    else if (accept("->reg1")) { gen(NOTHING); }
+    else if (accept("->reg2")) { gen(MOVAB); gen(POPA); }
+    else if (accept("->reg3")) { gen(MOVAC); gen(POPA); }
+    else if (accept("->reg4")) { gen(MOVAD); gen(POPA); }
+    else if (accept("sys")) { gen(SYS);   gen(POPA); }
+    else if (accept("+locs")) { gen1(ADDEDI, 24); }
+    else if (accept("-locs")) { gen1(SUBEDI, 24); }
+    else if (accept("l0")) { gen(PUSHA); gen1(EDIOFF, 0); }
+    else if (accept("l1")) { gen(PUSHA); gen1(EDIOFF, 4); }
+    else if (accept("l2")) { gen(PUSHA); gen1(EDIOFF, 8); }
+    else if (accept("l3")) { gen(PUSHA); gen1(EDIOFF, 12); }
+    else if (accept("l4")) { gen(PUSHA); gen1(EDIOFF, 16); }
+    else if (accept("l5")) { gen(PUSHA); gen1(EDIOFF, 20); }
+    else if (accept("s\"")) { stringStmt(); }
+    else if (accept("a@")) { gen(PUSHA); gen(AFET); }
+    else if (accept("a!")) { gen(ASTO); gen(POPA); }
+    else if (accept("a+")) { gen(AINC); }
+    else if (accept("a-")) { gen(ADEC); }
+    else if (accept("(")) { while (!accept(")")) { next_token(); } }
+    else if (accept("")) { return; }
     else { msg(1, "syntax error"); }
 }
 
-void funcDef() {
+//---------------------------------------------------------------------------
+// Top level
+//---------------------------------------------------------------------------
+void doVar() {
     next_token();
-    gen1(DEF, addSymbol(token, 'F'));
-    while (1) {
+    addSymbol(token, 'I');
+    next_token();
+    if (is_num) {
+        int sz = int_val;
         next_token();
-        statement();
-        if (accept(";")) { return; }
+        if (accept("allot")) { next_token(); vars[numVars].sz = sz; }
     }
 }
 
-/*---------------------------------------------------------------------------*/
-int main(int argc, char *argv[]) {
-    char *fn = (argc > 1) ? argv[1] : NULL;
-    input_fp = stdin;
-    if (fn) {
-        input_fp = fopen(fn, "rt");
-        if (!input_fp) { msg(1, "cannot open source file!"); }
-    }
+void generateIRL() {
     here = 0;
-    winLin('S');
+    next_token();
     while (ch != EOF) {
-        next_token();
-        if (accept("var")) { next_token(); addSymbol(token, 'I'); }
-        else if (accept(":")) { funcDef(); }
+        if (accept("var")) { doVar(); continue; }
+        else if (accept(":")) {
+            next_token();
+            gen1(DEF, addSymbol(token, 'F'));
+            while (1) {
+                next_token();
+                statement();
+                if (accept(";")) { break; }
+            }
+        }
         else if (token[0]) { msg(1, "syntax error"); }
+        next_token();
     }
-    if (input_fp) { fclose(input_fp); }
-    optimizeIRL();
-    winLin('C');
+}
+
+void generateCode() {
+    genSysSpecific('C');
+    genStartupCode();
+    genSysSpecific('L');
     genCode();
-    winLin('D');
-    printf("\n\n; symbols: %d entries, %d used\n", VARS_SZ, numVars);
-    printf("; num type size name\n");
-    printf("; --- ---- ---- -----------------\n");
-    for (int i = 1; i <= numVars; i++) {
-        if (vars[i].type == 'I') { printf("%-10s dd 0 ; %s\n", asmName(i), varName(i)); }
-    }
+    genSysSpecific('D');
+    printf("\n\n; code: %d entries, %d used", CODE_SZ, here);
+    printf("\n; heap: %d bytes, %d used", HEAP_SZ, hHere);
+    printf("\n; symbols: %d entries, %d used", VARS_SZ, numVars);
     for (int i = 1; i <= numStrings; i++) {
-        printf("%-10s db \"%s\", 0\n", strings[i].name, strings[i].val);
+        printf("\n%-10s db \"%s\", 0", strings[i].name, strings[i].val);
     }
-    printf("rstk       rd 256\n");
-    winLin('I');
+    for (int i = 1; i <= numVars; i++) {
+        if (vars[i].type == 'I') {
+            printf("\n%-10s rd %3d ; %s", asmName(i), vars[i].sz, varName(i));
+        }
+    }
+    printf("\nA          rd   1");
+    printf("\nrstk       rd 256");
+    printf("\nlocs       rd %d\n", LOCS_SZ);
+    genSysSpecific('I');
+}
+
+//---------------------------------------------------------------------------
+int main(int argc, char *argv[]) {
+    char *fn = (argc > 1) ? argv[1] : "test.fth";
+    fprintf(stderr, "input: %s\n", fn);
+    input_fp = fopen(fn, "rt");
+    if (!input_fp) { msg(1, "cannot open source file!"); }
+    genSysSpecific('S');
+    generateIRL();
+    if (input_fp) { fclose(input_fp); }
+    while (optimizeIRL()) {}
+    generateCode();
     return 0;
 }
