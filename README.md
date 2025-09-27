@@ -23,6 +23,32 @@ The compiler follows a streamlined three-phase approach:
 2. **Iterative Optimization** - Repeatedly perform peephole optimizations until no changes
 3. **Code Generation** - Output platform-specific assembly code (Linux/Windows)
 
+## Building the FCC compiler
+
+### Windows
+- There is a solution file `fcc.sln`.
+- This is a 32-bit system, so only the 32-bit configuration is supported.
+- It makes a program named `fcw.exe`.
+- `fcw.exe` is the Forth Compiler for Windows.
+
+### Linux
+- There is a Makefile.
+- `make` creates a program named `fcl`.
+- `fcl` is the Forth Compiler for Linux.
+- This is a 32-bit system, so only the 32-bit configuration is supported.
+
+## Building a program using the FCL/FCW compiler
+- Run `fcw` or `fcl` depending on if you are running Windows or Linux.
+- The programs take a single parameter, the name of a source file.
+- The programs write the generated source to stdout.
+- Redirect that output into a file (e.g. - `pgm.asm`).
+- Any errors detected are written to stderr.
+- Execute `fasm` using that file for input (e.g. - `fasm pgm.asm`).
+
+### Examples:
+- Under Linux, see the Makefile for the 'test' target.
+- Under Windows, see the 'make.bat' file.
+
 ### Constants and Configuration
 
 ```c

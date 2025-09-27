@@ -151,7 +151,7 @@ enum {
     , LT, GT, EQ, NEQ
     , PLEQ, DECTOS, INCTOS
     , MOVAB, MOVAC, MOVAD, SYS
-    , POPB, TESTA
+    , POPB, TESTA, CODE
     , ADDEDI, SUBEDI, EDIOFF
     , AFET, ASTO, AINC, ADEC
 };
@@ -235,6 +235,7 @@ void genCode() {
             BCASE JMPZ:    printf("\n\tJZ   %s", vn);
             BCASE JMPNZ:   printf("\n\tJNZ  %s", vn);
             BCASE TESTA:   printf("\n\tTEST EAX, EAX");
+            BCASE CODE:    printf("\n; code\n%s; end-code", (char *)a1);
             BCASE MOVAB:   printf("\n\tMOV  EBX, EAX");
             BCASE MOVAC:   printf("\n\tMOV  ECX, EAX");
             BCASE MOVAD:   printf("\n\tMOV  EDX, EAX");
@@ -264,6 +265,20 @@ void stringStmt() {
     next_ch();
     gen(PUSHA);
     gen1(LOADSTR, addString(tmpStr));
+}
+
+void codeStmt() {
+    char *code = hAlloc(256);
+    code[0] = 0;
+    next_line();
+    while (!strEq(cur_line, "end-code\n")) {
+        char *cp = cur_line;
+        while (BTWI(*cp, 1, 32)) { cp++; }
+        strcat(code, cp);
+        next_line();
+    }
+    next_line();
+    gen1(CODE, (int)code);
 }
 
 void statement() {
@@ -319,6 +334,7 @@ void statement() {
     else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 16); }
     else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 20); }
     else if (accept("s\""))    { stringStmt(); }
+    else if (accept("code"))   { codeStmt(); }
     else if (accept("a@"))     { gen(PUSHA); gen(AFET); }
     else if (accept("a!"))     { gen(ASTO); gen(POPA); }
     else if (accept("a+"))     { gen(AINC); }
@@ -347,6 +363,7 @@ void generateIRL() {
     next_token();
     while (ch != EOF) {
         if (accept("var")) { doVar(); continue; }
+        else if (accept("code")) { codeStmt(); }
         else if (accept(":")) {
             next_token();
             gen1(DEF, addSymbol(token, 'F'));
@@ -387,7 +404,6 @@ void generateCode() {
 //---------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
     char *fn = (argc > 1) ? argv[1] : "test.fth";
-    fprintf(stderr, "input: %s\n", fn);
     input_fp = fopen(fn, "rt");
     if (!input_fp) { msg(1, "cannot open source file!"); }
     genSysSpecific('S');

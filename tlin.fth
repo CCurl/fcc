@@ -1,4 +1,28 @@
-var base 
+// Test file for the Linux version
+// NOTE: this is nearly identical to twin.fth except emit and bye are sys calls
+
+var base
+
+// output a single character to stdout
+// NOS: the char, TOS, addr to store it
+// Linux needs ECX to point to the buffer
+// EBX = 1 means stdout
+// EDX is the number of chars to write
+: outc ( c a-- ) code
+pop ebx
+mov [eax], bl
+mov edx, 1
+mov ecx, eax
+mov ebx, 1
+mov eax, 4
+int 0x80
+pop eax
+end-code
+;
+
+var _em
+: emit  ( c-- ) _em outc ;
+: bye   0 ->reg2 1 sys ;
 
 : @a  a@ @ ;				: !a  a@ ! ;
 : @a+ @a  a@ 4 + a! ;		: !a+ !a  a@ 4 + a! ;
@@ -11,9 +35,6 @@ var base
 : +l +locs a@ l0 ! ;
 : -l l0 @  a! -locs ;
 
-var _em
-: emit  ( c-- ) _em c! _em ->reg3  0 ->reg2  1 ->reg4  4 sys ;
-: bye   0 ->reg2 1 sys ;
 
 : ztype ( a-- ) +l  a!
 	begin
@@ -53,6 +74,7 @@ var x
 : t0 cr 't' emit . ;
 : t1   1 t0 s" hello world!" ztype ;
 : t2   2 t0 1234 s" hello" strlen . . ;
+: t3   3 t0 'a' _em outc ;
 : t4   4 t0 0= if 'n' emit exit then 'y' emit ;
 : t5   5 t0 buf a! 'h' c!a+ 'i' c!a+ 0 c!a buf ztype space ;
 : t6   6 t0 666 222 ->reg2  333 ->reg3  444 ->reg4 . s" (should print 666)" ztype ;
@@ -66,6 +88,6 @@ var x
 
 : main
 	10 base !
-	t1 t2 0 t4 1 t4 t5 t6 t7 t8 t9 t10 t11 t12
+	t1 t2 t3 0 t4 1 t4 t5 t6 t7 t8 t9 t10 t11 t12
 	cr t999 cr
 	s" still here? s" ztype ;
