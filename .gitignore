@@ -11,3 +11,5 @@ fcc/Release/
 /fcw/.vs/fcc
 /fcw/fcc.vcxproj.user
 /fcw/test.bin
+fcw/fcl
+fcw/tlin
