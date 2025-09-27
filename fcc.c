@@ -157,37 +157,35 @@ enum {
 };
 
 int optimizeIRL() {
-    // return 0; // Currently disabled
     int changes = 0;
     for (int i = 1; i <= here; i++) {
         int op = opcodes[i], op1 = opcodes[i + 1], op2 = opcodes[i + 2];
         if ((op == PUSHA) && (op1 == POPA)) {
-            // NOTE: this assumes we modifying EAX next
             opcodes[i] = NOTHING;
-            opcodes[i + 1] = NOTHING;
+            opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == POPB)) {
             opcodes[i] = MOVAB;
-            opcodes[i + 1] = NOTHING;
+            opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op2 == POPB)) {
             opcodes[i] = MOVAB;
-            opcodes[i + 2] = NOTHING;
+            opcodes[i+2] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
             opcodes[i] = NOTHING;
-            opcodes[i + 2] = NOTHING;
+            opcodes[i+2] = NOTHING;
         }
         if (((op == INCTOS) || (op == DECTOS)) && (op1 == TESTA)) {
-            opcodes[i + 1] = NOTHING;
+            opcodes[i+1] = NOTHING;
         }
     }
     for (int i = here; 1 <= i; i--) {
         if (opcodes[i] == NOTHING) {
             changes++;
             for (int j = i; j < here; j++) {
-                opcodes[j] = opcodes[j + 1];
-                arg1[j] = arg1[j + 1];
+                opcodes[j] = opcodes[j+1];
+                arg1[j] = arg1[j+1];
             }
             here--;
         }
@@ -202,52 +200,52 @@ void genCode() {
         char *vn = varName(a1),  *an = asmName(a1);
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
         switch (op) {
-        case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
-            BCASE LIT : printf("\n\tMOV  EAX, %d", a1);
-            BCASE PUSHA : printf("\n\tPUSH EAX"); // DUP
-            BCASE POPA : printf("\n\tPOP  EAX"); // DROP
-            BCASE POPB : printf("\n\tPOP  EBX");
-            BCASE SWAP : printf("\n\tXCHG EAX, [ESP]");
-            BCASE SP4 : printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
-            BCASE LOADSTR : printf("\n\tLEA  EAX, [%s]", strings[a1].name);
-            BCASE STORE : printf("\n\tMOV  [EAX], EBX");
-            BCASE CSTORE : printf("\n\tMOV  [EAX], BL");
-            BCASE FETCH : printf("\n\tMOV  EAX, [EAX]");
-            BCASE CFETCH : printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
-            BCASE PLEQ : printf("\n\tADD  [EAX], EBX");
-            BCASE DECTOS : printf("\n\tDEC  EAX");
-            BCASE INCTOS : printf("\n\tINC  EAX");
-            BCASE ADD : printf("\n\tADD  EAX, EBX");
-            BCASE SUB : printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
-            BCASE MULT : printf("\n\tIMUL EAX, EBX");
-            BCASE DIVIDE : printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
-            BCASE DIVMOD : printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
-            BCASE AND : printf("\n\tAND  EAX, EBX");
-            BCASE OR : printf("\n\tOR   EAX, EBX");
-            BCASE XOR : printf("\n\tXOR  EAX, EBX");
-            BCASE LT : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
-            BCASE GT : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
-            BCASE EQ : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
-            BCASE NEQ : printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
-            BCASE DEF : printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
-            BCASE CALL : printf("\n\tCALL %s ; %s", an, vn);
-            BCASE RETURN : printf("\n\tJMP  RETfromEBP");
-            BCASE TARGET : printf("\n%s:", vn);
-            BCASE JMP : printf("\n\tJMP  %s", vn);
-            BCASE JMPZ : printf("\n\tJZ   %s", vn);
-            BCASE JMPNZ : printf("\n\tJNZ  %s", vn);
-            BCASE TESTA : printf("\n\tTEST EAX, EAX");
-            BCASE MOVAB : printf("\n\tMOV  EBX, EAX");
-            BCASE MOVAC : printf("\n\tMOV  ECX, EAX");
-            BCASE MOVAD : printf("\n\tMOV  EDX, EAX");
-            BCASE SYS : printf("\n\tINT  0x80");
-            BCASE ADDEDI : printf("\n\tADD  EDI, %d", a1);
-            BCASE SUBEDI : printf("\n\tSUB  EDI, %d", a1);
-            BCASE EDIOFF : printf("\n\tLEA  EAX, [EDI+%d]", a1);
-            BCASE AFET : printf("\n\tMOV  EAX, [A]");
-            BCASE ASTO : printf("\n\tMOV  [A], EAX");
-            BCASE AINC : printf("\n\tINC  [A]");
-            BCASE ADEC : printf("\n\tDEC  [A]");
+            case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
+            BCASE LIT:     printf("\n\tMOV  EAX, %d", a1);
+            BCASE PUSHA:   printf("\n\tPUSH EAX"); // DUP
+            BCASE POPA:    printf("\n\tPOP  EAX"); // DROP
+            BCASE POPB:    printf("\n\tPOP  EBX");
+            BCASE SWAP:    printf("\n\tXCHG EAX, [ESP]");
+            BCASE SP4:     printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
+            BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", strings[a1].name);
+            BCASE STORE:   printf("\n\tMOV  [EAX], EBX");
+            BCASE CSTORE:  printf("\n\tMOV  [EAX], BL");
+            BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
+            BCASE CFETCH:  printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
+            BCASE PLEQ:    printf("\n\tADD  [EAX], EBX");
+            BCASE DECTOS:  printf("\n\tDEC  EAX");
+            BCASE INCTOS:  printf("\n\tINC  EAX");
+            BCASE ADD:     printf("\n\tADD  EAX, EBX");
+            BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
+            BCASE MULT:    printf("\n\tIMUL EAX, EBX");
+            BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
+            BCASE DIVMOD:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
+            BCASE AND:     printf("\n\tAND  EAX, EBX");
+            BCASE OR:      printf("\n\tOR   EAX, EBX");
+            BCASE XOR:     printf("\n\tXOR  EAX, EBX");
+            BCASE LT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJGE  @F\n\tDEC  EAX\n@@:");
+            BCASE GT:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJLE  @F\n\tDEC  EAX\n@@:");
+            BCASE EQ:      printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJNZ  @F\n\tDEC  EAX\n@@:");
+            BCASE NEQ:     printf("\n\tCMP  EBX, EAX\n\tMOV  EAX, 0\n\tJE   @F\n\tDEC  EAX\n@@:");
+            BCASE DEF:     printf("\n\n%s: ; %s\n\tCALL RETtoEBP", an, vn);
+            BCASE CALL:    printf("\n\tCALL %s ; %s", an, vn);
+            BCASE RETURN:  printf("\n\tJMP  RETfromEBP");
+            BCASE TARGET:  printf("\n%s:", vn);
+            BCASE JMP:     printf("\n\tJMP  %s", vn);
+            BCASE JMPZ:    printf("\n\tJZ   %s", vn);
+            BCASE JMPNZ:   printf("\n\tJNZ  %s", vn);
+            BCASE TESTA:   printf("\n\tTEST EAX, EAX");
+            BCASE MOVAB:   printf("\n\tMOV  EBX, EAX");
+            BCASE MOVAC:   printf("\n\tMOV  ECX, EAX");
+            BCASE MOVAD:   printf("\n\tMOV  EDX, EAX");
+            BCASE SYS:     printf("\n\tINT  0x80");
+            BCASE ADDEDI:  printf("\n\tADD  EDI, %d", a1);
+            BCASE SUBEDI:  printf("\n\tSUB  EDI, %d", a1);
+            BCASE EDIOFF:  printf("\n\tLEA  EAX, [EDI+%d]", a1);
+            BCASE AFET:    printf("\n\tMOV  EAX, [A]");
+            BCASE ASTO:    printf("\n\tMOV  [A], EAX");
+            BCASE AINC:    printf("\n\tINC  [A]");
+            BCASE ADEC:    printf("\n\tDEC  [A]");
         }
     }
 }
@@ -275,58 +273,58 @@ void statement() {
     i = findSymbol(token, 'F');
     if (i) { gen1(CALL, i); return; }
 
-    if (accept("@")) { gen(FETCH); }
-    else if (accept("c@")) { gen(CFETCH); }
-    else if (accept("!")) { gen(POPB); gen(STORE); gen(POPA); }
-    else if (accept("c!")) { gen(POPB); gen(CSTORE); gen(POPA); }
-    else if (accept("1+")) { gen(INCTOS); }
-    else if (accept("1-")) { gen(DECTOS); }
-    else if (accept("if")) { push(genTargetSymbol()); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
-    else if (accept("else")) { printf("\n\t; WARNING - ELSE not yet implemented"); }
-    else if (accept("then")) { gen1(TARGET, pop()); }
-    else if (accept("begin")) { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
-    else if (accept("while")) { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
-    else if (accept("until")) { gen(TESTA); gen(POPA); gen1(JMPZ, pop()); }
-    else if (accept("again")) { gen1(JMP, pop()); }
-    else if (accept("exit")) { gen(RETURN); }
-    else if (accept("dup")) { gen(PUSHA); }
-    else if (accept("drop")) { gen(POPA); }
-    else if (accept("swap")) { gen(SWAP); }
-    else if (accept("over")) { gen(PUSHA); gen(SP4); }
-    else if (accept(";")) { gen(RETURN); }
-    else if (accept("+!")) { gen(POPB); gen(PLEQ); gen(POPA); }
-    else if (accept("+")) { gen(POPB); gen(ADD); }
-    else if (accept("-")) { gen(POPB); gen(SUB); }
-    else if (accept("*")) { gen(POPB); gen(MULT); }
-    else if (accept("/mod")) { gen(POPB); gen(DIVMOD); }
-    else if (accept("/")) { gen(POPB); gen(DIVIDE); }
-    else if (accept("<")) { gen(POPB); gen(LT); }
-    else if (accept("=")) { gen(POPB); gen(EQ); }
-    else if (accept("<>")) { gen(POPB); gen(NEQ); }
-    else if (accept(">")) { gen(POPB); gen(GT); }
-    else if (accept("AND")) { gen(POPB); gen(AND); }
-    else if (accept("OR")) { gen(POPB); gen(OR); }
-    else if (accept("XOR")) { gen(POPB); gen(XOR); }
+    if (accept("@"))           { gen(FETCH); }
+    else if (accept("c@"))     { gen(CFETCH); }
+    else if (accept("!"))      { gen(POPB); gen(STORE); gen(POPA); }
+    else if (accept("c!"))     { gen(POPB); gen(CSTORE); gen(POPA); }
+    else if (accept("1+"))     { gen(INCTOS); }
+    else if (accept("1-"))     { gen(DECTOS); }
+    else if (accept("if"))     { push(genTargetSymbol()); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
+    else if (accept("else"))   { printf("\n\t; WARNING - ELSE not yet implemented"); }
+    else if (accept("then"))   { gen1(TARGET, pop()); }
+    else if (accept("begin"))  { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
+    else if (accept("while"))  { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
+    else if (accept("until"))  { gen(TESTA); gen(POPA); gen1(JMPZ, pop()); }
+    else if (accept("again"))  { gen1(JMP, pop()); }
+    else if (accept("exit"))   { gen(RETURN); }
+    else if (accept("dup"))    { gen(PUSHA); }
+    else if (accept("drop"))   { gen(POPA); }
+    else if (accept("swap"))   { gen(SWAP); }
+    else if (accept("over"))   { gen(PUSHA); gen(SP4); }
+    else if (accept(";"))      { gen(RETURN); }
+    else if (accept("+!"))     { gen(POPB); gen(PLEQ); gen(POPA); }
+    else if (accept("+"))      { gen(POPB); gen(ADD); }
+    else if (accept("-"))      { gen(POPB); gen(SUB); }
+    else if (accept("*"))      { gen(POPB); gen(MULT); }
+    else if (accept("/mod"))   { gen(POPB); gen(DIVMOD); }
+    else if (accept("/"))      { gen(POPB); gen(DIVIDE); }
+    else if (accept("<"))      { gen(POPB); gen(LT); }
+    else if (accept("="))      { gen(POPB); gen(EQ); }
+    else if (accept("<>"))     { gen(POPB); gen(NEQ); }
+    else if (accept(">"))      { gen(POPB); gen(GT); }
+    else if (accept("and"))    { gen(POPB); gen(AND); }
+    else if (accept("or"))     { gen(POPB); gen(OR); }
+    else if (accept("xor"))    { gen(POPB); gen(XOR); }
     else if (accept("->reg1")) { gen(NOTHING); }
     else if (accept("->reg2")) { gen(MOVAB); gen(POPA); }
     else if (accept("->reg3")) { gen(MOVAC); gen(POPA); }
     else if (accept("->reg4")) { gen(MOVAD); gen(POPA); }
-    else if (accept("sys")) { gen(SYS);   gen(POPA); }
-    else if (accept("+locs")) { gen1(ADDEDI, 24); }
-    else if (accept("-locs")) { gen1(SUBEDI, 24); }
-    else if (accept("l0")) { gen(PUSHA); gen1(EDIOFF, 0); }
-    else if (accept("l1")) { gen(PUSHA); gen1(EDIOFF, 4); }
-    else if (accept("l2")) { gen(PUSHA); gen1(EDIOFF, 8); }
-    else if (accept("l3")) { gen(PUSHA); gen1(EDIOFF, 12); }
-    else if (accept("l4")) { gen(PUSHA); gen1(EDIOFF, 16); }
-    else if (accept("l5")) { gen(PUSHA); gen1(EDIOFF, 20); }
-    else if (accept("s\"")) { stringStmt(); }
-    else if (accept("a@")) { gen(PUSHA); gen(AFET); }
-    else if (accept("a!")) { gen(ASTO); gen(POPA); }
-    else if (accept("a+")) { gen(AINC); }
-    else if (accept("a-")) { gen(ADEC); }
-    else if (accept("(")) { while (!accept(")")) { next_token(); } }
-    else if (accept("")) { return; }
+    else if (accept("sys"))    { gen(SYS);   gen(POPA); }
+    else if (accept("+locs"))  { gen1(ADDEDI, 24); }
+    else if (accept("-locs"))  { gen1(SUBEDI, 24); }
+    else if (accept("l0"))     { gen(PUSHA); gen1(EDIOFF, 0); }
+    else if (accept("l1"))     { gen(PUSHA); gen1(EDIOFF, 4); }
+    else if (accept("l2"))     { gen(PUSHA); gen1(EDIOFF, 8); }
+    else if (accept("l3"))     { gen(PUSHA); gen1(EDIOFF, 12); }
+    else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 16); }
+    else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 20); }
+    else if (accept("s\""))    { stringStmt(); }
+    else if (accept("a@"))     { gen(PUSHA); gen(AFET); }
+    else if (accept("a!"))     { gen(ASTO); gen(POPA); }
+    else if (accept("a+"))     { gen(AINC); }
+    else if (accept("a-"))     { gen(ADEC); }
+    else if (accept("("))      { while (!accept(")")) { next_token(); } }
+    else if (accept(""))       { return; }
     else { msg(1, "syntax error"); }
 }
 

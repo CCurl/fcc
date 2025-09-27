@@ -8,8 +8,8 @@ CFLAGS := -m$(ARCH) -O3
 
 all: fcl
 
-fcl: fcl.c
-	$(CXX) $(CFLAGS) -o fcl fcl.c
+fcl: fcc.c system.c
+	$(CXX) $(CFLAGS) -o fcl fcc.c system.c
 	ls -l fcl
 
 bin: all
@@ -20,11 +20,11 @@ bin: all
 # -------------------------------------------------------------------
 
 clean:
-	rm -f fcl
+	rm -f fcl tlin
 
-test: fcl test.fth
-	./fcl test.fth > test.asm
-	fasm test.asm test
-	chmod +x test
-	./test
+test: fcl tlin.fth
+	./fcl tlin.fth > tlin.asm
+	fasm tlin.asm tlin
+	chmod +x tlin
+	./tlin
 	
