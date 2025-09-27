@@ -1,12 +1,12 @@
 // Test file for the Linux version
 // NOTE: this is nearly identical to twin.fth except emit and bye are sys calls
 
-var base
-
 // output a single character to stdout
-// NOS: the char, TOS, addr to store it
-// Linux needs ECX to point to the buffer
-// EBX = 1 means stdout
+// NOS: the char, TOS, addr to store the char
+// This uses the Linux syscall #4 - write
+// EAX = 4: syscall number
+// EBX = 1: stdout
+// ECX = address of buffer with chars to output
 // EDX is the number of chars to write
 : outc ( c a-- ) code
 pop ebx
@@ -50,6 +50,8 @@ var _em
 : space 32 emit ;
 : negate 0 swap - ;
 
+var x
+var base
 var buf 3 allot
 var #n
 : (.) ( n -- )
@@ -70,7 +72,6 @@ var #n
 	begin c@a+ while
 	a@ l1 @ - 1-  l3 @ a!  -locs ;
 
-var x
 : t0 cr 't' emit . ;
 : t1   1 t0 s" hello world!" ztype ;
 : t2   2 t0 1234 s" hello" strlen . . ;
