@@ -11,17 +11,17 @@
 - **Language**: C
 - **Target**: 32-bit x86 Assembly (FASM format)
 
-## Folders
+## Files
 
-- **fcl**: Forth compiler for Linux systems
-- **fcw**: Forth compiler for Windows systems
+- **fcc.c**: Main Forth compiler source code
+- **system.c**: Platform-specific code generation (Windows/Linux)
 
 ## Architecture
 
 The compiler follows a streamlined three-phase approach:
 1. **IRL Generation** - Parse source and generate Intermediate Representation Language (IRL)
-2. **Optimization** - Perform peephole optimizations on the IRL
-3. **Code Generation** - Output assembly code for Linux x86
+2. **Iterative Optimization** - Repeatedly perform peephole optimizations until no changes
+3. **Code Generation** - Output platform-specific assembly code (Linux/Windows)
 
 ### Constants and Configuration
 
@@ -215,11 +215,20 @@ AND OR XOR          // Bitwise operations
 
 ### 5. Platform-Specific Code Generation
 
-#### Linux (32-bit)
+#### Cross-Platform Support
+
+**Linux (32-bit):**
 - Direct system calls via `sys` command
 - ELF executable format
 - No external library dependencies
 - Custom function call convention using EBP stack
+
+**Windows (32-bit):**
+- Windows API integration
+- PE executable format
+- Built-in console output support
+
+**Common Features:**
 - Uses EDI for pointer arithmetic and a `locs` array for local storage
 - Enhanced optimization with iterative peephole passes
 - A-register variable for quick access operations
@@ -228,9 +237,8 @@ AND OR XOR          // Bitwise operations
 
 ### Command Line
 ```bash
-cd fcl                         # Change directory
-make fcl                       # Compile the fcl program
-./fcl > output.asm             # Compile fcl.fth to assembly code
+make fcc                       # Compile the fcc program (creates fcl executable)
+./fcl > output.asm             # Compile fcc.fth to assembly code (default)
 ./fcl myfile.fth > output.asm  # Compile specific file to assembly code
 fasm output.asm program        # Assemble to executable using FASM
 chmod +x program               # Make the program executable
@@ -244,28 +252,22 @@ chmod +x program               # Make the program executable
 
 ### Example Program
 ```forth
+var counter
 var limit 100 allot
-var _em
 
+: increment counter @ 1+ counter ! ;
 : mil ( n--m ) 1000 dup * * ;
-: emit  ( c-- ) _em c! _em ->reg3  0 ->reg2  1 ->reg4  4 sys ;
-
-: ztype ( a-- ) +l  a!
-	begin
-		a@ c@ a+ dup 0 = 
-		if drop -l exit then
-		emit
-	again ;
 
 : main
   0 counter !
   1 mil limit !
   begin
     counter @ a!    // Store counter in A register
-    a@ s" Counter: " ztype
-    a+ a@ limit @ >
+    a@ // Process counter value
+    increment
+    a@ limit @ >
   until
-  s" Done!" ztype
+  // Program complete
 ;
 ```
 
@@ -298,9 +300,5 @@ var _em
 - Clean separation of IRL generation and code emission
 - Stack-based execution model with register and pointer access
 - Enhanced error reporting with stderr output
-- Integrated optimization pass
-- Compact, self-contained compiler
-- Clean separation of IRL generation and code emission
-- Stack-based execution model with register and pointer access
 
 This compiler serves as an example of a minimal but functional compiler implementation, demonstrating core compiler concepts in a clear and understandable way.
