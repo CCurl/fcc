@@ -374,9 +374,10 @@ void generateIRL() {
     here = 0;
     next_token();
     while (ch != EOF) {
-        if (accept("var")) { doVar(); continue; }
-        else if (accept("code")) { codeStmt(); }
-        else if (accept(":")) {
+        if (accept("("))          { while (!accept(")")) { next_token(); } }
+        else if (accept("var"))   { doVar(); continue; }
+        else if (accept("code"))  { codeStmt(); }
+        else if (accept(":"))     {
             next_token();
             gen1(DEF, addSymbol(token, 'F'));
             while (1) {
