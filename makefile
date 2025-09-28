@@ -8,8 +8,8 @@ CFLAGS := -m$(ARCH) -O3
 
 all: fcl
 
-fcl: fcc.c system.c
-	$(CXX) $(CFLAGS) -o fcl fcc.c system.c
+fcl: fcc.c
+	$(CXX) $(CFLAGS) -o fcl fcc.c
 	ls -l fcl
 
 bin: all

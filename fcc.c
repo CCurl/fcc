@@ -18,7 +18,7 @@ typedef struct { char name[32]; char *val; } STR_T;
 extern void genStartupCode();
 extern void genSysSpecific(int seg);
 
-int ch = ' ', is_num, int_val;
+int ch=32, is_num, int_val;
 int is_eof = 0, cur_lnum, cur_off, stk[64], sp = 0;
 int numVars, numStrings, hHere = 0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
@@ -143,7 +143,7 @@ int addString(char *str) {
 enum {
     NOTHING, VARADDR, LIT, LOADSTR
     , STORE, FETCH, CSTORE, CFETCH
-    , ADD, SUB, MULT, DIVIDE, DIVMOD
+    , ADD, ADDIMM, SUB, MULT, DIVIDE, DIVMOD
     , AND, OR, XOR
     , POPA, PUSHA, SWAP, SP4
     , JMP, JMPZ, JMPNZ, TARGET
@@ -159,8 +159,12 @@ enum {
 int optimizeIRL() {
     int changes = 0;
     for (int i = 1; i <= here; i++) {
-        int op = opcodes[i], op1 = opcodes[i + 1], op2 = opcodes[i + 2];
+        int op=opcodes[i], op1=opcodes[i+1], op2=opcodes[i+2];
         if ((op == PUSHA) && (op1 == POPA)) {
+            opcodes[i] = NOTHING;
+            opcodes[i+1] = NOTHING;
+        }
+        if ((op == POPA) && (op1 == PUSHA) && (op2 == LIT)) {
             opcodes[i] = NOTHING;
             opcodes[i+1] = NOTHING;
         }
@@ -170,6 +174,11 @@ int optimizeIRL() {
         }
         if ((op == PUSHA) && (op2 == POPB)) {
             opcodes[i] = MOVAB;
+            opcodes[i+2] = NOTHING;
+        }
+        if ((op == MOVAB) && (op1 == LIT) && (op2 == ADD)) {
+            opcodes[i] = NOTHING;
+            opcodes[i+1] = ADDIMM;
             opcodes[i+2] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
@@ -190,6 +199,7 @@ int optimizeIRL() {
             here--;
         }
     }
+    if (changes) { printf("; optimize: %d changes\n", changes); }
     return changes;
 }
 
@@ -216,6 +226,7 @@ void genCode() {
             BCASE DECTOS:  printf("\n\tDEC  EAX");
             BCASE INCTOS:  printf("\n\tINC  EAX");
             BCASE ADD:     printf("\n\tADD  EAX, EBX");
+            BCASE ADDIMM:  printf("\n\tADD  EAX, %d", a1);
             BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
             BCASE MULT:    printf("\n\tIMUL EAX, EBX");
             BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
@@ -268,12 +279,13 @@ void stringStmt() {
 }
 
 void codeStmt() {
-    char *code = hAlloc(256);
+    char *code = &heap[hHere];
     code[0] = 0;
     next_line();
     while (!strEq(cur_line, "end-code\n")) {
         char *cp = cur_line;
         while (BTWI(*cp, 1, 32)) { cp++; }
+        hHere += strlen(cp) + 1;
         strcat(code, cp);
         next_line();
     }
@@ -378,6 +390,73 @@ void generateIRL() {
     }
 }
 
+//---------------------------------------------------------------------------
+void genSysSpecific(int seg) {
+#ifdef _WIN32
+    if (seg == 'S') {
+        addSymbol("bye", 'F');
+        addSymbol("emit", 'F');
+    } else if (seg == 'C') {
+        printf("format PE console");
+        printf("\ninclude 'win32ax.inc'\n");
+        printf("\n;=============================================");
+        printf("\nsection '.code' code readable executable");
+    } else if (seg == 'L') {
+        printf("\n;================== library (Windows) ==================");
+        printf("\n%s: ; bye", asmName(findSymbol("bye", 'F')));
+        printf("\n\tPUSH 0\n\tCALL [ExitProcess]");
+        printf("\n;---------------------------------------------");
+        char *s = asmName(addSymbol("pv", 'I'));
+        printf("\n%s: ; emit", asmName(findSymbol("emit", 'F')));
+        printf("\n\tCALL RETtoEBP");
+        printf("\n\tMOV [%s], EAX", s);
+        printf("\n\tcinvoke printf, \"%s\", [%s]", "%c", s);
+        printf("\n\tPOP EAX");
+        printf("\n\tJMP RETfromEBP");
+        printf("\n;=============================================");
+    } else if (seg == 'D') {
+        printf("\n\n;================== data =====================");
+        printf("\nsection '.data' data readable writeable");
+        printf("\n;---------------------------------------------");
+    } else if (seg == 'I') {
+        printf("\n;=============================================");
+        printf("\nsection '.idata' import data readable");
+        printf("\n;---------------------------------------------");
+        printf("\nlibrary msvcrt, 'msvcrt.dll', kernel32, 'kernel32.dll'");
+        printf("\nimport msvcrt, printf,'printf', getch,'_getch'");
+        printf("\nimport kernel32, ExitProcess,'ExitProcess'\n");
+    }
+#else // Must be Linux
+    if (seg == 'C') {
+        printf("format ELF executable");
+        printf("\n;================== code =====================");
+        printf("\nsegment readable executable");
+    } else if (seg == 'D') {
+        printf("\n\n;================== data =====================");
+        printf("\nsegment readable writeable");
+    }
+#endif
+}
+
+void genStartupCode() {
+    printf("\n;=============================================");
+    printf("\nstart:\n\tLEA  EBP, [rstk]\n\tLEA  EDI, [locs]");
+    printf("\n\tCALL %s", asmName(findSymbol("main", 'F')));
+    printf("\n\tJMP  %s", asmName(findSymbol("bye", 'F')));
+    printf("\n;---------------------------------------------");
+    printf("\nRETtoEBP: ; Move the return addr to the [EBP] stack");
+    printf("\n\tPOP  ESI ; NB: ESI is destroyed");
+    printf("\n\tADD  EBP, 4");
+    printf("\n\tPOP  DWORD [EBP]");
+    printf("\n\tPUSH ESI");
+    printf("\n\tRET");
+    printf("\n;---------------------------------------------");
+    printf("\nRETfromEBP: ; Perform a return from the [EBP] stack");
+    printf("\n\tPUSH DWORD [EBP]");
+    printf("\n\tSUB  EBP, 4");
+    printf("\n\tRET");
+}
+
 void generateCode() {
     genSysSpecific('C');
     genStartupCode();
@@ -409,7 +488,9 @@ int main(int argc, char *argv[]) {
     genSysSpecific('S');
     generateIRL();
     if (input_fp) { fclose(input_fp); }
+    int hh = here;
     while (optimizeIRL()) {}
+    if (hh != here) { printf("; final code size: %d entries\n", here); }
     generateCode();
     return 0;
 }

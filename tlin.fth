@@ -9,20 +9,26 @@
 // ECX = address of buffer with chars to output
 // EDX is the number of chars to write
 : outc ( c a-- ) code
-pop ebx
-mov [eax], bl
-mov edx, 1
-mov ecx, eax
-mov ebx, 1
-mov eax, 4
-int 0x80
-pop eax
+	pop ebx
+	mov [eax], bl
+	mov edx, 1
+	mov ecx, eax
+	mov ebx, 1
+	mov eax, 4
+	int 0x80
+	pop eax
 end-code
 ;
 
 var _em
 : emit  ( c-- ) _em outc ;
-: bye   0 ->reg2 1 sys ;
+
+: bye code
+	mov eax, 1
+	xor ebx, ebx
+	int 0x80
+end-code
+;
 
 : @a  a@ @ ;				: !a  a@ ! ;
 : @a+ @a  a@ 4 + a! ;		: !a+ !a  a@ 4 + a! ;
@@ -50,8 +56,8 @@ var _em
 : space 32 emit ;
 : negate 0 swap - ;
 
-var x
 var base
+var x
 var buf 3 allot
 var #n
 : (.) ( n -- )

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**FCC (Forth Compiler)** is a minimal and pedagogical Forth compiler written in C that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for simple programs.
+**FCC (Forth Compiler)** is a minimal and pedagogical Forth compiler written in a single C file that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for programs.
 
 ## File Structure
 
@@ -13,8 +13,7 @@
 
 ## Files
 
-- **fcc.c**: Main Forth compiler source code
-- **system.c**: Platform-specific code generation (Windows/Linux)
+- **fcc.c**: The Forth compiler source code
 
 ## Architecture
 
@@ -41,13 +40,13 @@ The compiler follows a streamlined three-phase approach:
 - Run `fcw` or `fcl` depending on if you are running Windows or Linux.
 - The programs take a single parameter, the name of a source file.
 - The programs write the generated source to stdout.
-- Redirect that output into a file (e.g. - `pgm.asm`).
 - Any errors detected are written to stderr.
+- Redirect the output into a file (e.g. - `fcl pgm.fh > pgm.asm`).
 - Execute `fasm` using that file for input (e.g. - `fasm pgm.asm`).
 
 ### Examples:
-- Under Linux, see the Makefile for the 'test' target.
-- Under Windows, see the 'make.bat' file.
+- Linux: see the Makefile for the 'test' target.
+- Windows: see the 'make.bat' file.
 
 ### Constants and Configuration
 
@@ -102,10 +101,8 @@ typedef struct {
 - **`findSymbol(char *name, char type)`** - Locates symbol by name and type
 - **`addSymbol(char *name, char type)`** - Adds new symbol to table
 - **`genTargetSymbol()`** - Generates unique target labels (Tgt1, Tgt2, etc.)
-
-#### String Management
-- **`addString(char *str)`** - Adds string literal to string table
 - **`dumpSymbols()`** - Outputs symbol declarations in assembly format
+- **`addString(char *str)`** - Adds string literal to string table
 
 ### 3. Intermediate Representation Language (IRL)
 
@@ -149,6 +146,7 @@ The compiler uses an internal instruction set:
 - `LIT` - Literal values
 - `PLEQ` - Plus-equals operation (`+!`)
 - `INCTOS`, `DECTOS` - Increment/decrement top of stack
+- `CODE` - Embed straight FASM code into assembly file
 
 ### 4. Parser and Code Generator
 
@@ -156,8 +154,8 @@ The compiler uses an internal instruction set:
 
 **Variables:**
 ```forth
-var myVar           // Declare integer variable (default size 1)
-var buffer 100 allot // Declare integer variable with size 100
+var myVar           // Declare variable (default size 1 DWORD)
+var buf 100 allot   // Declare variable with size 100 DWORDs
 ```
 
 **Functions:**
@@ -184,9 +182,9 @@ until               // Until loop
 **Stack Operations:**
 ```forth
 42                  // Push literal
-dup                 // Duplicate top
-drop                // Remove top
-swap                // Swap top two
+dup                 // Duplicate TOS
+drop                // Remove TOS
+swap                // Swap TOS and NOS
 over                // Copy second to top
 ```
 
@@ -199,7 +197,6 @@ c!                  // Store 8-bit (byte) value to address
 +!                  // Add to memory location
 1+ 1-               // Increment/decrement TOS
 ```
-
 
 **Register, Locals, and System Operations:**
 ```forth
@@ -239,6 +236,16 @@ AND OR XOR          // Bitwise operations
 ( ... )             // In-line comment
 ```
 
+**Inline Assembly Code:**
+```forth
+: bye code
+    xor ebx, ebx
+    mov eax, 1
+    int 0x80
+  end-code
+;
+```
+
 ### 5. Platform-Specific Code Generation
 
 #### Cross-Platform Support
@@ -255,7 +262,7 @@ AND OR XOR          // Bitwise operations
 - Built-in console output support
 
 **Common Features:**
-- Uses EDI for pointer arithmetic and a `locs` array for local storage
+- Uses EDI to point to a `locs` array for local storage
 - Enhanced optimization with iterative peephole passes
 - A-register variable for quick access operations
 

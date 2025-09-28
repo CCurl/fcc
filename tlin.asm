@@ -1,3 +1,6 @@
+; optimize: 38 changes
+; optimize: 9 changes
+; final code size: 509 entries
 format ELF executable
 ;================== code =====================
 segment readable executable
@@ -8,14 +11,14 @@ start:
 	CALL F56
 	JMP  F4
 ;---------------------------------------------
-RETtoEBP:    ; Move the return addr to the [EBP] stack
-	POP  EDX ; NB: EDX is destroyed
+RETtoEBP: ; Move the return addr to the [EBP] stack
+	POP  ESI ; NB: ESI is destroyed
 	ADD  EBP, 4
 	POP  DWORD [EBP]
-	PUSH EDX
+	PUSH ESI
 	RET
 ;---------------------------------------------
-RETfromEBP:  ; Perform a return from the [EBP] stack
+RETfromEBP: ; Perform a return from the [EBP] stack
 	PUSH DWORD [EBP]
 	SUB  EBP, 4
 	RET
@@ -43,14 +46,11 @@ F3: ; emit
 
 F4: ; bye
 	CALL RETtoEBP
-	PUSH EAX
-	MOV  EAX, 0
-	MOV  EBX, EAX
-	POP  EAX
-	PUSH EAX
-	MOV  EAX, 1
-	INT  0x80
-	POP  EAX
+; code
+mov eax, 1
+xor ebx, ebx
+int 0x80
+; end-code
 	JMP  RETfromEBP
 
 F5: ; @a
@@ -73,9 +73,7 @@ F7: ; @a+
 	CALL F5 ; @a
 	PUSH EAX
 	MOV  EAX, [A]
-	MOV  EBX, EAX
-	MOV  EAX, 4
-	ADD  EAX, EBX
+	ADD  EAX, 4
 	MOV  [A], EAX
 	POP  EAX
 	JMP  RETfromEBP
@@ -85,9 +83,7 @@ F8: ; !a+
 	CALL F6 ; !a
 	PUSH EAX
 	MOV  EAX, [A]
-	MOV  EBX, EAX
-	MOV  EAX, 4
-	ADD  EAX, EBX
+	ADD  EAX, 4
 	MOV  [A], EAX
 	POP  EAX
 	JMP  RETfromEBP
@@ -256,8 +252,6 @@ F31: ; (.)
 	PUSH EAX
 	LEA  EAX, [I30] ; #n
 	MOV  [A], EAX
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 0
 	PUSH EAX
 	CALL F16 ; c!a-
@@ -283,7 +277,7 @@ F31: ; (.)
 Tgt3:
 Tgt4:
 	PUSH EAX
-	LEA  EAX, [I28] ; base
+	LEA  EAX, [I27] ; base
 	MOV  EAX, [EAX]
 	POP  EBX
 	XCHG EAX, EBX
@@ -291,9 +285,7 @@ Tgt4:
 	IDIV EBX
 	PUSH EDX
 	XCHG EAX, [ESP]
-	MOV  EBX, EAX
-	MOV  EAX, 48
-	ADD  EAX, EBX
+	ADD  EAX, 48
 	PUSH EAX
 	MOV  EBX, EAX
 	MOV  EAX, 57
@@ -305,9 +297,7 @@ Tgt4:
 	TEST EAX, EAX
 	POP  EAX
 	JZ   Tgt5
-	MOV  EBX, EAX
-	MOV  EAX, 7
-	ADD  EAX, EBX
+	ADD  EAX, 7
 Tgt5:
 	CALL F16 ; c!a-
 	TEST EAX, EAX
@@ -346,8 +336,6 @@ F37: ; strlen
 	TEST EAX, EAX
 	POP  EAX
 	JZ   Tgt7
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 0
 	JMP  RETfromEBP
 Tgt7:
@@ -459,8 +447,6 @@ F46: ; t5
 	PUSH EAX
 	LEA  EAX, [I29] ; buf
 	MOV  [A], EAX
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 104
 	CALL F14 ; c!a+
 	PUSH EAX
@@ -485,12 +471,8 @@ F47: ; t6
 	PUSH EAX
 	MOV  EAX, 222
 	MOV  EBX, EAX
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 333
 	MOV  ECX, EAX
-	POP  EAX
-	PUSH EAX
 	MOV  EAX, 444
 	MOV  EDX, EAX
 	POP  EAX
@@ -529,14 +511,14 @@ F49: ; t8
 	PUSH EAX
 	MOV  EAX, 16
 	MOV  EBX, EAX
-	LEA  EAX, [I28] ; base
+	LEA  EAX, [I27] ; base
 	MOV  [EAX], EBX
 	POP  EAX
 	CALL F36 ; .
 	PUSH EAX
 	MOV  EAX, 10
 	MOV  EBX, EAX
-	LEA  EAX, [I28] ; base
+	LEA  EAX, [I27] ; base
 	MOV  [EAX], EBX
 	POP  EAX
 	JMP  RETfromEBP
@@ -569,11 +551,11 @@ F51: ; t10
 	PUSH EAX
 	MOV  EAX, 103
 	MOV  EBX, EAX
-	LEA  EAX, [I27] ; x
+	LEA  EAX, [I28] ; x
 	MOV  [EAX], BL
 	POP  EAX
 	PUSH EAX
-	LEA  EAX, [I27] ; x
+	LEA  EAX, [I28] ; x
 	MOV  AL, [EAX]
 	AND  EAX, 0xFF
 	PUSH EAX
@@ -647,7 +629,7 @@ F56: ; main
 	PUSH EAX
 	MOV  EAX, 10
 	MOV  EBX, EAX
-	LEA  EAX, [I28] ; base
+	LEA  EAX, [I27] ; base
 	MOV  [EAX], EBX
 	POP  EAX
 	CALL F41 ; t1
@@ -678,8 +660,8 @@ F56: ; main
 ;================== data =====================
 segment readable writeable
 
-; code: 5000 entries, 534 used
-; heap: 5000 bytes, 332 used
+; code: 5000 entries, 509 used
+; heap: 5000 bytes, 205 used
 ; symbols: 500 entries, 56 used
 S1         db "hello world!", 0
 S2         db "hello", 0
@@ -689,8 +671,8 @@ S5         db "-l3-", 0
 S6         db "bye", 0
 S7         db "still here? s", 0
 I2         rd   1 ; _em
-I27        rd   1 ; x
-I28        rd   1 ; base
+I27        rd   1 ; base
+I28        rd   1 ; x
 I29        rd   3 ; buf
 I30        rd   1 ; #n
 A          rd   1
