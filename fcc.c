@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VARS_SZ    500
 #define LOCS_SZ    500
-#define CODE_SZ   5000
+#define SYMS_SZ   1000
 #define HEAP_SZ   5000
+#define CODE_SZ  10000
 
 #define BTWI(n,l,h) ((l <= n) && (n <= h))
 #define BCASE break; case
@@ -17,11 +17,11 @@ typedef struct { char name[32]; char *val; } STR_T;
 
 int ch=32, is_num, int_val;
 int is_eof = 0, cur_lnum, cur_off, stk[64], sp = 0;
-int numVars, hHere = 0;
+int numSymbols, hHere = 0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 char token[32], cur_line[256] = { 0 };
 char heap[HEAP_SZ];
-SYM_T vars[VARS_SZ];
+SYM_T symbols[SYMS_SZ];
 FILE *input_fp = NULL;
 
 //---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ void push(int x) { stk[++sp] = x; }
 int pop() { return stk[sp--]; }
 int strEq(char *s1, char *s2) { return (strcmp(s1, s2) == 0) ? 1 : 0; }
 int accept(char *str) { return strEq(token, str); }
-char *asmName(int i) { return vars[i].asmName; }
+char *asmName(int i) { return symbols[i].asmName; }
 void gen(int op) { ++here; opcodes[here] = op; }
 void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
 
@@ -101,16 +101,16 @@ start:
 //---------------------------------------------------------------------------
 // Symbols - 'I' = INT, 'F' = Function, 'T' = Target
 int findSymbol(char *name, char type) {
-    for (int i = numVars; 0 < i; i--) {
-        if (strEq(vars[i].name, name) && (vars[i].type == type)) { return i; }
+    for (int i = numSymbols; 0 < i; i--) {
+        if (strEq(symbols[i].name, name) && (symbols[i].type == type)) { return i; }
     }
     return 0;
 }
 
 int addSymbol(char *name, char type) {
     if (strlen(name) > 20) { msg(1, "name too long"); }
-    int i = ++numVars;
-    SYM_T *x = &vars[i];
+    int i = ++numSymbols;
+    SYM_T *x = &symbols[i];
     x->type = type;
     x->sz = 1;
     x->str = NULL;
@@ -121,7 +121,7 @@ int addSymbol(char *name, char type) {
 
 int genTargetSymbol() {
     int si = addSymbol("", 'T');
-    sprintf(vars[si].name, "Tgt%d", si);
+    sprintf(symbols[si].name, "Tgt%d", si);
     return si;
 }
 
@@ -203,7 +203,7 @@ void genCode() {
     for (int i = 1; i <= here; i++) {
         int op = opcodes[i];
         int a1 = arg1[i];
-        char *vn = vars[a1].name, *an = asmName(a1);
+        char *vn = symbols[a1].name, *an = asmName(a1);
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
         switch (op) {
             case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
@@ -264,7 +264,7 @@ void genCode() {
 // Parser
 void stringStmt() {
     int si = addSymbol("", 'S');
-    vars[si].str = &heap[hHere];
+    symbols[si].str = &heap[hHere];
     next_ch();
     while (ch != '"') {
         if (ch == EOF) { msg(1, "syntax error"); }
@@ -364,7 +364,7 @@ void doVar() {
     if (is_num) {
         int sz = int_val;
         next_token();
-        if (accept("allot")) { next_token(); vars[numVars].sz = sz; }
+        if (accept("allot")) { next_token(); symbols[numSymbols].sz = sz; }
     }
 }
 
@@ -464,15 +464,15 @@ void generateCode() {
     genSysSpecific('D');
     printf("\n\n; code: %d entries, %d used", CODE_SZ, here);
     printf("\n; heap: %d bytes, %d used", HEAP_SZ, hHere);
-    printf("\n; symbols: %d entries, %d used", VARS_SZ, numVars);
-    for (int i = 1; i <= numVars; i++) {
-        if (vars[i].type == 'S') {
-            printf("\n%-10s db \"%s\", 0", asmName(i), vars[i].str);
+    printf("\n; symbols: %d entries, %d used", SYMS_SZ, numSymbols);
+    for (int i = 1; i <= numSymbols; i++) {
+        if (symbols[i].type == 'S') {
+            printf("\n%-10s db \"%s\", 0", asmName(i), symbols[i].str);
         }
     }
-    for (int i = 1; i <= numVars; i++) {
-        if (vars[i].type == 'I') {
-            printf("\n%-10s rd %3d ; %s", asmName(i), vars[i].sz, vars[i].name);
+    for (int i = 1; i <= numSymbols; i++) {
+        if (symbols[i].type == 'I') {
+            printf("\n%-10s rd %3d ; %s", asmName(i), symbols[i].sz, symbols[i].name);
         }
     }
     printf("\nA          rd   1");
@@ -492,6 +492,5 @@ int main(int argc, char *argv[]) {
     if (input_fp) { fclose(input_fp); }
     while (optimizeIRL()) {}
     generateCode();
-    printf("; final code size: %d instructions\n", here);
     return 0;
 }

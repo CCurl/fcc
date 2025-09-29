@@ -38,18 +38,17 @@ end-code
 : c@a+  c@a  a+ ;			: c!a+  c!a  a+ ;
 : c@a-  c@a  a- ;			: c!a-  c!a  a- ;
 
-: +l +locs a@ l0 ! ;
-: -l l0 @  a! -locs ;
+: +L +locs a@ l0 ! ;
+: -L l0 @  a! -locs ;
 
-
-: ztype ( a-- ) +l  a!
+: 0= if 0 exit then 1 ;
+: ztype ( a-- ) +L  a!
 	begin
-		c@a+ dup 0 = 
-		if drop -l exit then
+		c@a+ dup 0= 
+		if drop -L exit then
 		emit
 	again ;
 
-: 0= 0 = ;
 
 : Mil ( n--m ) 1000 dup * * ;
 : cr 10 emit ;
@@ -60,7 +59,7 @@ var base
 var buf 3 allot
 var #n
 : (.) ( n -- )
-	+l #n a! 0 dup c!a- c!a-
+	+L #n a! 0 dup c!a- c!a-
 	dup 0 < if 1 #n c! negate then
 	begin
 		base @ /mod swap '0' + 
@@ -68,7 +67,7 @@ var #n
 		c!a- dup
 	while drop
 	#n c@ if '-' c!a- then
-	a@ 1+ ztype -l ;
+	a@ 1+ ztype -L ;
 : . (.) space ;
 
 : strlen ( a -- n )
