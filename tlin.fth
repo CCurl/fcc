@@ -57,7 +57,6 @@ end-code
 : negate 0 swap - ;
 
 var base
-var x
 var buf 3 allot
 var #n
 : (.) ( n -- )
@@ -77,6 +76,10 @@ var #n
 	+locs  a@ l3 !  dup a! l1 !
 	begin c@a+ while
 	a@ l1 @ - 1-  l3 @ a!  -locs ;
+
+var x
+: x++  x @ 1+ x ! ;
+: x+4  x @ 4 + x ! ;
 
 : t0 cr 't' emit . ;
 : t1   1 t0 s" hello world!" ztype ;

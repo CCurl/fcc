@@ -5,7 +5,6 @@
 #include <string.h>
 
 #define VARS_SZ    500
-#define STRS_SZ    500
 #define LOCS_SZ    500
 #define CODE_SZ   5000
 #define HEAP_SZ   5000
@@ -13,28 +12,24 @@
 #define BTWI(n,l,h) ((l <= n) && (n <= h))
 #define BCASE break; case
 
-typedef struct { char type, name[23]; char asmName[8]; int sz; } SYM_T;
+typedef struct { char type, name[23]; char asmName[8]; int sz; char *str; } SYM_T;
 typedef struct { char name[32]; char *val; } STR_T;
-extern void genStartupCode();
-extern void genSysSpecific(int seg);
 
 int ch=32, is_num, int_val;
 int is_eof = 0, cur_lnum, cur_off, stk[64], sp = 0;
-int numVars, numStrings, hHere = 0;
+int numVars, hHere = 0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
 char token[32], cur_line[256] = { 0 };
 char heap[HEAP_SZ];
 SYM_T vars[VARS_SZ];
-STR_T strings[STRS_SZ];
 FILE *input_fp = NULL;
 
 //---------------------------------------------------------------------------
 // Utilities
 void push(int x) { stk[++sp] = x; }
-int  pop() { return stk[sp--]; }
+int pop() { return stk[sp--]; }
 int strEq(char *s1, char *s2) { return (strcmp(s1, s2) == 0) ? 1 : 0; }
 int accept(char *str) { return strEq(token, str); }
-char *varName(int i) { return vars[i].name; }
 char *asmName(int i) { return vars[i].asmName; }
 void gen(int op) { ++here; opcodes[here] = op; }
 void gen1(int op, int a1) { gen(op); arg1[here] = a1; }
@@ -107,7 +102,7 @@ start:
 // Symbols - 'I' = INT, 'F' = Function, 'T' = Target
 int findSymbol(char *name, char type) {
     for (int i = numVars; 0 < i; i--) {
-        if (strEq(varName(i), name) && (vars[i].type == type)) { return i; }
+        if (strEq(vars[i].name, name) && (vars[i].type == type)) { return i; }
     }
     return 0;
 }
@@ -118,31 +113,23 @@ int addSymbol(char *name, char type) {
     SYM_T *x = &vars[i];
     x->type = type;
     x->sz = 1;
+    x->str = NULL;
     strcpy(x->name, name);
     sprintf(x->asmName, "%c%d", type, i);
     return i;
 }
 
 int genTargetSymbol() {
-    static int seq = 0;
-    char name[8];
-    sprintf(name, "Tgt%d", ++seq);
-    return addSymbol(name, 'T');
-}
-
-int addString(char *str) {
-    int i = ++numStrings;
-    sprintf(strings[i].name, "S%d", i);
-    strings[i].val = hAlloc(strlen(str) + 1);
-    strcpy(strings[i].val, str);
-    return i;
+    int si = addSymbol("", 'T');
+    sprintf(vars[si].name, "Tgt%d", si);
+    return si;
 }
 
 //---------------------------------------------------------------------------
 // IRL
 enum {
     NOTHING, VARADDR, LIT, LOADSTR
-    , STORE, FETCH, CSTORE, CFETCH
+    , STORE, FETCH, CSTORE, CFETCH, STOREA, FETCHA
     , ADD, ADDIMM, SUB, MULT, DIVIDE, DIVMOD
     , AND, OR, XOR
     , POPA, PUSHA, SWAP, SP4
@@ -176,6 +163,15 @@ int optimizeIRL() {
             opcodes[i] = MOVAB;
             opcodes[i+2] = NOTHING;
         }
+        if ((op == MOVAB) && (op1 == VARADDR) && (op2 == STORE)) {
+            opcodes[i] = NOTHING;
+            opcodes[i+1] = STOREA;
+            opcodes[i+2] = NOTHING;
+        }
+        if ((op == VARADDR) && (op1 == FETCH)) {
+            opcodes[i] = FETCHA;
+            opcodes[i+1] = NOTHING;
+        }
         if ((op == MOVAB) && (op1 == LIT) && (op2 == ADD)) {
             opcodes[i] = NOTHING;
             opcodes[i+1] = ADDIMM;
@@ -199,7 +195,7 @@ int optimizeIRL() {
             here--;
         }
     }
-    if (changes) { printf("; optimize: %d changes\n", changes); }
+    // if (changes) { printf("; optimize: %d changes\n", changes); }
     return changes;
 }
 
@@ -207,7 +203,7 @@ void genCode() {
     for (int i = 1; i <= here; i++) {
         int op = opcodes[i];
         int a1 = arg1[i];
-        char *vn = varName(a1),  *an = asmName(a1);
+        char *vn = vars[a1].name, *an = asmName(a1);
         // printf("\n; %3d: %-3d %-3d %-5d\n\t", i, op, a1, a2);
         switch (op) {
             case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
@@ -217,10 +213,12 @@ void genCode() {
             BCASE POPB:    printf("\n\tPOP  EBX");
             BCASE SWAP:    printf("\n\tXCHG EAX, [ESP]");
             BCASE SP4:     printf("\n\tMOV  EAX, [ESP+4]"); // Used by OVER
-            BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", strings[a1].name);
+            BCASE LOADSTR: printf("\n\tLEA  EAX, [%s]", an);
             BCASE STORE:   printf("\n\tMOV  [EAX], EBX");
+            BCASE STOREA:  printf("\n\tMOV  [%s], EAX", an);
             BCASE CSTORE:  printf("\n\tMOV  [EAX], BL");
             BCASE FETCH:   printf("\n\tMOV  EAX, [EAX]");
+            BCASE FETCHA:  printf("\n\tMOV  EAX, [%s]", an);
             BCASE CFETCH:  printf("\n\tMOV  AL, [EAX]\n\tAND  EAX, 0xFF");
             BCASE PLEQ:    printf("\n\tADD  [EAX], EBX");
             BCASE DECTOS:  printf("\n\tDEC  EAX");
@@ -265,17 +263,17 @@ void genCode() {
 //---------------------------------------------------------------------------
 // Parser
 void stringStmt() {
-    char tmpStr[256], i = 0;
+    int si = addSymbol("", 'S');
+    vars[si].str = &heap[hHere];
     next_ch();
     while (ch != '"') {
         if (ch == EOF) { msg(1, "syntax error"); }
-        tmpStr[i++] = ch;
+        heap[hHere++] = ch;
         next_ch();
     }
-    tmpStr[i] = 0;
+    heap[hHere++] = 0;
     next_ch();
-    gen(PUSHA);
-    gen1(LOADSTR, addString(tmpStr));
+    gen1(LOADSTR, si);
 }
 
 void codeStmt() {
@@ -307,7 +305,7 @@ void statement() {
     else if (accept("1+"))     { gen(INCTOS); }
     else if (accept("1-"))     { gen(DECTOS); }
     else if (accept("if"))     { push(genTargetSymbol()); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
-    else if (accept("else"))   { printf("\n\t; WARNING - ELSE not yet implemented"); }
+    else if (accept("else"))   { msg(1, "ERROR: ELSE not implemented"); }
     else if (accept("then"))   { gen1(TARGET, pop()); }
     else if (accept("begin"))  { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
     else if (accept("while"))  { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
@@ -345,7 +343,7 @@ void statement() {
     else if (accept("l3"))     { gen(PUSHA); gen1(EDIOFF, 12); }
     else if (accept("l4"))     { gen(PUSHA); gen1(EDIOFF, 16); }
     else if (accept("l5"))     { gen(PUSHA); gen1(EDIOFF, 20); }
-    else if (accept("s\""))    { stringStmt(); }
+    else if (accept("s\""))    { gen(PUSHA); stringStmt(); }
     else if (accept("code"))   { codeStmt(); }
     else if (accept("a@"))     { gen(PUSHA); gen(AFET); }
     else if (accept("a!"))     { gen(ASTO); gen(POPA); }
@@ -467,12 +465,14 @@ void generateCode() {
     printf("\n\n; code: %d entries, %d used", CODE_SZ, here);
     printf("\n; heap: %d bytes, %d used", HEAP_SZ, hHere);
     printf("\n; symbols: %d entries, %d used", VARS_SZ, numVars);
-    for (int i = 1; i <= numStrings; i++) {
-        printf("\n%-10s db \"%s\", 0", strings[i].name, strings[i].val);
+    for (int i = 1; i <= numVars; i++) {
+        if (vars[i].type == 'S') {
+            printf("\n%-10s db \"%s\", 0", asmName(i), vars[i].str);
+        }
     }
     for (int i = 1; i <= numVars; i++) {
         if (vars[i].type == 'I') {
-            printf("\n%-10s rd %3d ; %s", asmName(i), vars[i].sz, varName(i));
+            printf("\n%-10s rd %3d ; %s", asmName(i), vars[i].sz, vars[i].name);
         }
     }
     printf("\nA          rd   1");
@@ -483,15 +483,15 @@ void generateCode() {
 
 //---------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
-    char *fn = (argc > 1) ? argv[1] : "test.fth";
+    char *fn = (argc > 1) ? argv[1] : NULL;
+    if (!fn) { msg(1, "no source file specified!"); }
     input_fp = fopen(fn, "rt");
     if (!input_fp) { msg(1, "cannot open source file!"); }
     genSysSpecific('S');
     generateIRL();
     if (input_fp) { fclose(input_fp); }
-    int hh = here;
     while (optimizeIRL()) {}
-    if (hh != here) { printf("; final code size: %d entries\n", here); }
     generateCode();
+    printf("; final code size: %d instructions\n", here);
     return 0;
 }
