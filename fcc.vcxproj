@@ -24,7 +24,7 @@
     <ProjectGuid>{CB2D435D-69A5-4B1A-8077-15100BA6BA03}</ProjectGuid>
     <RootNamespace>stable</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>fcc</ProjectName>
+    <ProjectName>fcw</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -146,12 +146,11 @@
   <ItemGroup>
     <None Include="make.bat" />
     <None Include="README.md" />
-    <None Include="test.asm" />
-    <None Include="test.fth" />
+    <None Include="twin.asm" />
+    <None Include="twin.fth" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fcw.c" />
-    <ClCompile Include="system.c" />
+    <ClCompile Include="fcc.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

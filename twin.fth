@@ -14,15 +14,13 @@ var base
 : +L +locs  a@ l0 ! ;
 : -L l0 @ a!  -locs ;
 
-var _em
+: 0= 0 = ;
 : ztype ( a-- ) +L  a!
 	begin
-		c@a+ dup 0 = 
+		c@a+ dup 0= 
 		if drop -L exit then
 		emit
 	again ;
-
-: 0= 0 = ;
 
 : Mil ( n--m ) 1000 dup * * ;
 : cr 10 emit ;
@@ -50,6 +48,11 @@ var #n
 	a@ l1 @ - 1-  -L ;
 
 var x
+: x++ x @ 1+ x ! ;
+: x-- x @ 1- x ! ;
+: x+4 x @ 4 + x ! ;
+: x-4 x @ 4 - x ! ;
+
 : t0 cr 't' emit . ;
 : t1   1 t0 s" hello world!" ztype ;
 : t2   2 t0 1234 s" hello" strlen . . ;
