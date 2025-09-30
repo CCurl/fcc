@@ -70,14 +70,6 @@ typedef struct {
 } SYM_T;
 ```
 
-#### String Table Entry (`STR_T`)
-```c
-typedef struct { 
-    char name[32];      // Generated string name (S1, S2, etc.)
-    char *val;          // String value (heap allocated)
-} STR_T;
-```
-
 ## Core Components
 
 ### 1. Lexical Analysis
@@ -100,9 +92,6 @@ typedef struct {
 #### Symbol Operations
 - **`findSymbol(char *name, char type)`** - Locates symbol by name and type
 - **`addSymbol(char *name, char type)`** - Adds new symbol to table
-- **`genTargetSymbol()`** - Generates unique target labels (Tgt1, Tgt2, etc.)
-- **`dumpSymbols()`** - Outputs symbol declarations in assembly format
-- **`addString(char *str)`** - Adds string literal to string table
 
 ### 3. Intermediate Representation Language (IRL)
 
@@ -251,19 +240,19 @@ AND OR XOR          // Bitwise operations
 #### Cross-Platform Support
 
 **Linux (32-bit):**
-- Direct system calls via `sys` command
 - ELF executable format
 - No external library dependencies
+- Direct system calls via `sys` command
 - Custom function call convention using EBP stack
 
 **Windows (32-bit):**
-- Windows API integration
 - PE executable format
+- Windows API integration
 - Built-in console output support
 
 **Common Features:**
-- Uses EDI to point to a `locs` array for local storage
 - Enhanced optimization with iterative peephole passes
+- Uses EDI to point to a `locs` array for local storage
 - A-register variable for quick access operations
 
 ## Usage
@@ -306,10 +295,10 @@ var limit 100 allot
 
 ## Compilation Process
 
-1. **Input Processing** - Read source file (defaults to `fcl.fth` if no argument provided)
+1. **Input Processing** - Read source file (error if no argument provided)
 2. **IRL Generation** - Parse declarations and generate intermediate representation
 3. **Iterative Optimization** - Repeatedly perform peephole optimizations until no changes
-4. **Code Generation** - Output ELF assembly with startup code and runtime support
+4. **Code Generation** - Output assembly with startup code and runtime support
 5. **Symbol Output** - Generate variable and string declarations with proper sizing in data section
 
 ## Limitations and Features

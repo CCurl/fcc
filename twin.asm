@@ -646,21 +646,21 @@ section '.data' data readable writeable
 ; code: 10000 entries, 496 used
 ; heap: 5000 bytes, 76 used
 ; symbols: 1000 entries, 65 used
-S44        db "hello world!", 0
-S46        db "hello", 0
-S51        db "(should print 666)", 0
-S53        db "test ztype ...", 0
-S60        db "-L3-", 0
-S62        db "bye", 0
-S64        db "still here? s", 0
-I3         rd   1 ; base
-I26        rd   3 ; buf
-I27        rd   1 ; #n
-I37        rd   1 ; x
-I65        rd   1 ; pv
-A          rd   1
-rstk       rd 256
-locs       rd 500
+S44      db "hello world!", 0
+S46      db "hello", 0
+S51      db "(should print 666)", 0
+S53      db "test ztype ...", 0
+S60      db "-L3-", 0
+S62      db "bye", 0
+S64      db "still here? s", 0
+I3       rd   1 ; base
+I26      rd   3 ; buf
+I27      rd   1 ; #n
+I37      rd   1 ; x
+I65      rd   1 ; pv
+A        rd   1
+rstk     rd 256
+locs     rd 500
 
 ;=============================================
 section '.idata' import data readable

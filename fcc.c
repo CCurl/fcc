@@ -13,14 +13,11 @@
 #define BCASE break; case
 
 typedef struct { char type, name[23]; char asmName[8]; int sz; char *str; } SYM_T;
-typedef struct { char name[32]; char *val; } STR_T;
 
-int ch=32, is_num, int_val;
-int is_eof = 0, cur_lnum, cur_off, stk[64], sp = 0;
-int numSymbols, hHere = 0;
+int ch=32, is_num, int_val, is_eof=0, cur_lnum, cur_off;
+int numSymbols, hHere=0, stk[64], sp=0;
 int opcodes[CODE_SZ], arg1[CODE_SZ], here;
-char token[32], cur_line[256] = { 0 };
-char heap[HEAP_SZ];
+char heap[HEAP_SZ], token[32], cur_line[256] = { 0 };
 SYM_T symbols[SYMS_SZ];
 FILE *input_fp = NULL;
 
@@ -94,7 +91,7 @@ start:
     while (BTWI(ch, 1, 32)) { next_ch(); }
     while (BTWI(ch, 33, 126)) { token[len++] = ch; next_ch(); }
     token[len] = 0;
-    if (strEq(token, "//")) { next_line(); goto start; }
+    if (accept("//")) { next_line(); goto start; }
     is_num = checkNumber(token, 10);
 }
 
@@ -114,33 +111,22 @@ int addSymbol(char *name, char type) {
     x->type = type;
     x->sz = 1;
     x->str = NULL;
-    strcpy(x->name, name);
+    if (type == 'T') { sprintf(symbols[i].name, "Tgt%d", i); }
+    else { strcpy(x->name, name); }
     sprintf(x->asmName, "%c%d", type, i);
     return i;
-}
-
-int genTargetSymbol() {
-    int si = addSymbol("", 'T');
-    sprintf(symbols[si].name, "Tgt%d", si);
-    return si;
 }
 
 //---------------------------------------------------------------------------
 // IRL
 enum {
-    NOTHING, VARADDR, LIT, LOADSTR
+    NOTHING, VARADDR, LIT, LOADSTR, DEF
     , STORE, FETCH, CSTORE, CFETCH, STOREA, FETCHA
     , ADD, ADDIMM, SUB, MULT, DIVIDE, DIVMOD
-    , AND, OR, XOR
-    , POPA, PUSHA, SWAP, SP4
-    , JMP, JMPZ, JMPNZ, TARGET
-    , DEF, CALL, RETURN
-    , LT, GT, EQ, NEQ
-    , PLEQ, DECTOS, INCTOS
-    , MOVAB, MOVAC, MOVAD, SYS
-    , POPB, TESTA, CODE
-    , ADDEDI, SUBEDI, EDIOFF
-    , AFET, ASTO, AINC, ADEC
+    , AND, OR, XOR, LT, GT, EQ, NEQ, PLEQ, DECTOS, INCTOS
+    , POPA, PUSHA, SWAP, SP4, JMP, JMPZ, JMPNZ, TARGET
+    , CALL, RETURN, MOVAB, MOVAC, MOVAD, SYS, POPB, TESTA
+    , CODE, ADDEDI, SUBEDI, EDIOFF, AFET, ASTO, AINC, ADEC
 };
 
 int optimizeIRL() {
@@ -148,12 +134,10 @@ int optimizeIRL() {
     for (int i = 1; i <= here; i++) {
         int op=opcodes[i], op1=opcodes[i+1], op2=opcodes[i+2];
         if ((op == PUSHA) && (op1 == POPA)) {
-            opcodes[i] = NOTHING;
-            opcodes[i+1] = NOTHING;
+            opcodes[i] = opcodes[i+1] = NOTHING;
         }
         if ((op == POPA) && (op1 == PUSHA) && (op2 == LIT)) {
-            opcodes[i] = NOTHING;
-            opcodes[i+1] = NOTHING;
+            opcodes[i] = opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == POPB)) {
             opcodes[i] = MOVAB;
@@ -164,22 +148,19 @@ int optimizeIRL() {
             opcodes[i+2] = NOTHING;
         }
         if ((op == MOVAB) && (op1 == VARADDR) && (op2 == STORE)) {
-            opcodes[i] = NOTHING;
             opcodes[i+1] = STOREA;
-            opcodes[i+2] = NOTHING;
+            opcodes[i] = opcodes[i+2] = NOTHING;
         }
         if ((op == VARADDR) && (op1 == FETCH)) {
             opcodes[i] = FETCHA;
             opcodes[i+1] = NOTHING;
         }
         if ((op == MOVAB) && (op1 == LIT) && (op2 == ADD)) {
-            opcodes[i] = NOTHING;
             opcodes[i+1] = ADDIMM;
-            opcodes[i+2] = NOTHING;
+            opcodes[i] = opcodes[i+2] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
-            opcodes[i] = NOTHING;
-            opcodes[i+2] = NOTHING;
+            opcodes[i] = opcodes[i+2] = NOTHING;
         }
         if (((op == INCTOS) || (op == DECTOS)) && (op1 == TESTA)) {
             opcodes[i+1] = NOTHING;
@@ -304,10 +285,10 @@ void statement() {
     else if (accept("c!"))     { gen(POPB); gen(CSTORE); gen(POPA); }
     else if (accept("1+"))     { gen(INCTOS); }
     else if (accept("1-"))     { gen(DECTOS); }
-    else if (accept("if"))     { push(genTargetSymbol()); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
+    else if (accept("if"))     { push(addSymbol("",'T')); gen(TESTA); gen(POPA); gen1(JMPZ, stk[sp]); }
     else if (accept("else"))   { msg(1, "ERROR: ELSE not implemented"); }
     else if (accept("then"))   { gen1(TARGET, pop()); }
-    else if (accept("begin"))  { push(genTargetSymbol()); gen1(TARGET, stk[sp]); }
+    else if (accept("begin"))  { push(addSymbol("",'T')); gen1(TARGET, stk[sp]); }
     else if (accept("while"))  { gen(TESTA); gen(POPA); gen1(JMPNZ, pop()); }
     else if (accept("until"))  { gen(TESTA); gen(POPA); gen1(JMPZ, pop()); }
     else if (accept("again"))  { gen1(JMP, pop()); }
@@ -467,17 +448,17 @@ void generateCode() {
     printf("\n; symbols: %d entries, %d used", SYMS_SZ, numSymbols);
     for (int i = 1; i <= numSymbols; i++) {
         if (symbols[i].type == 'S') {
-            printf("\n%-10s db \"%s\", 0", asmName(i), symbols[i].str);
+            printf("\n%-8s db \"%s\", 0", asmName(i), symbols[i].str);
         }
     }
     for (int i = 1; i <= numSymbols; i++) {
         if (symbols[i].type == 'I') {
-            printf("\n%-10s rd %3d ; %s", asmName(i), symbols[i].sz, symbols[i].name);
+            printf("\n%-8s rd %3d ; %s", asmName(i), symbols[i].sz, symbols[i].name);
         }
     }
-    printf("\nA          rd   1");
-    printf("\nrstk       rd 256");
-    printf("\nlocs       rd %d\n", LOCS_SZ);
+    printf("\nA        rd   1");
+    printf("\nrstk     rd 256");
+    printf("\nlocs     rd %d\n", LOCS_SZ);
     genSysSpecific('I');
 }
 
@@ -489,7 +470,7 @@ int main(int argc, char *argv[]) {
     if (!input_fp) { msg(1, "cannot open source file!"); }
     genSysSpecific('S');
     generateIRL();
-    if (input_fp) { fclose(input_fp); }
+    fclose(input_fp);
     while (optimizeIRL()) {}
     generateCode();
     return 0;
