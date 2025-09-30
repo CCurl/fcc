@@ -1,14 +1,9 @@
 .vs
 fcc.vcxproj.user
-test
-test.exe
 enc_temp_folder
 Debug/
-fcc/Debug/
+fcc/
 Release/
-fcc/Release/
 fcc.vcxproj.user
-test.bin
 tlin
-fcl
-fcw.exe
+twin.exe

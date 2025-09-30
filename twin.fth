@@ -29,7 +29,7 @@ var base
 
 var buf 3 allot
 var #n
-: (.) ( n -- )
+: (.) ( n-- )
 	+L #n a! 0 dup c!a- c!a-
 	dup 0 < if 1 #n c! negate then
 	begin
@@ -41,11 +41,10 @@ var #n
 	a@ 1+ ztype -L ;
 : . (.) space ;
 
-: strlen ( a -- n )
-	dup c@ 0= if drop 0 exit then
-	+L  dup a! l1 !
-	begin c@a+ while
-	a@ l1 @ - 1-  -L ;
+: strlen ( a--n )
+	+locs  a@ l0 !  a!
+	0  begin  1+  a@ c@  a+  while
+	1-  l0 @ a!  -locs ;
 
 var x
 : x++ x @ 1+ x ! ;

@@ -7,7 +7,7 @@ section '.code' code readable executable
 start:
 	LEA  EBP, [rstk]
 	LEA  EDI, [locs]
-	CALL F63
+	CALL F65
 	JMP  F1
 ;---------------------------------------------
 RETtoEBP: ; Move the return addr to the [EBP] stack
@@ -28,8 +28,8 @@ F1: ; bye
 ;---------------------------------------------
 F2: ; emit
 	CALL RETtoEBP
-	MOV [I65], EAX
-	cinvoke printf, "%c", [I65]
+	MOV [I67], EAX
+	cinvoke printf, "%c", [I67]
 	POP EAX
 	JMP RETfromEBP
 ;=============================================
@@ -300,7 +300,7 @@ F33: ; .
 	CALL F24 ; space
 	JMP  RETfromEBP
 
-F34: ; strlen
+F34: ; strlen-old
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  AL, [EAX]
@@ -337,46 +337,76 @@ Tgt36:
 	CALL F17 ; -L
 	JMP  RETfromEBP
 
-F38: ; x++
+F37: ; strlen
 	CALL RETtoEBP
+	ADD  EDI, 24
 	PUSH EAX
-	MOV  EAX, [I37]
+	MOV  EAX, [A]
+	MOV  EBX, EAX
+	LEA  EAX, [EDI+0]
+	MOV  [EAX], EBX
+	POP  EAX
+	MOV  [A], EAX
+	MOV  EAX, 0
+Tgt38:
 	INC  EAX
-	MOV  [I37], EAX
-	POP  EAX
-	JMP  RETfromEBP
-
-F39: ; x--
-	CALL RETtoEBP
 	PUSH EAX
-	MOV  EAX, [I37]
+	MOV  EAX, [A]
+	MOV  AL, [EAX]
+	AND  EAX, 0xFF
+	INC  [A]
+	TEST EAX, EAX
+	POP  EAX
+	JNZ  Tgt38
 	DEC  EAX
-	MOV  [I37], EAX
+	PUSH EAX
+	LEA  EAX, [EDI+0]
+	MOV  EAX, [EAX]
+	MOV  [A], EAX
+	POP  EAX
+	SUB  EDI, 24
+	JMP  RETfromEBP
+
+F40: ; x++
+	CALL RETtoEBP
+	PUSH EAX
+	MOV  EAX, [I39]
+	INC  EAX
+	MOV  [I39], EAX
 	POP  EAX
 	JMP  RETfromEBP
 
-F40: ; x+4
+F41: ; x--
 	CALL RETtoEBP
 	PUSH EAX
-	MOV  EAX, [I37]
+	MOV  EAX, [I39]
+	DEC  EAX
+	MOV  [I39], EAX
+	POP  EAX
+	JMP  RETfromEBP
+
+F42: ; x+4
+	CALL RETtoEBP
+	PUSH EAX
+	MOV  EAX, [I39]
 	ADD  EAX, 4
-	MOV  [I37], EAX
+	MOV  [I39], EAX
 	POP  EAX
 	JMP  RETfromEBP
 
-F41: ; x-4
+F43: ; x-4
 	CALL RETtoEBP
 	PUSH EAX
-	MOV  EAX, [I37]
+	MOV  EAX, [I39]
 	MOV  EBX, EAX
 	MOV  EAX, 4
 	XCHG EAX, EBX
 	SUB  EAX, EBX
-	MOV  [I37], EAX
+	MOV  [I39], EAX
 	POP  EAX
 	JMP  RETfromEBP
 
-F42: ; t0
+F44: ; t0
 	CALL RETtoEBP
 	CALL F23 ; cr
 	PUSH EAX
@@ -385,54 +415,54 @@ F42: ; t0
 	CALL F33 ; .
 	JMP  RETfromEBP
 
-F43: ; t1
+F45: ; t1
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 1
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
-	LEA  EAX, [S44]
+	LEA  EAX, [S46]
 	CALL F19 ; ztype
 	JMP  RETfromEBP
 
-F45: ; t2
+F47: ; t2
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 2
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 1234
 	PUSH EAX
-	LEA  EAX, [S46]
-	CALL F34 ; strlen
+	LEA  EAX, [S48]
+	CALL F37 ; strlen
 	CALL F33 ; .
 	CALL F33 ; .
 	JMP  RETfromEBP
 
-F47: ; t4
+F49: ; t4
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 4
-	CALL F42 ; t0
+	CALL F44 ; t0
 	CALL F18 ; 0=
 	TEST EAX, EAX
 	POP  EAX
-	JZ   Tgt48
+	JZ   Tgt50
 	PUSH EAX
 	MOV  EAX, 110
 	CALL F2 ; emit
 	JMP  RETfromEBP
-Tgt48:
+Tgt50:
 	PUSH EAX
 	MOV  EAX, 121
 	CALL F2 ; emit
 	JMP  RETfromEBP
 
-F49: ; t5
+F51: ; t5
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 5
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	LEA  EAX, [I26] ; buf
 	MOV  [A], EAX
@@ -450,11 +480,11 @@ F49: ; t5
 	CALL F24 ; space
 	JMP  RETfromEBP
 
-F50: ; t6
+F52: ; t6
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 6
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 666
 	PUSH EAX
@@ -467,25 +497,25 @@ F50: ; t6
 	POP  EAX
 	CALL F33 ; .
 	PUSH EAX
-	LEA  EAX, [S51]
-	CALL F19 ; ztype
-	JMP  RETfromEBP
-
-F52: ; t7
-	CALL RETtoEBP
-	PUSH EAX
-	MOV  EAX, 7
-	CALL F42 ; t0
-	PUSH EAX
 	LEA  EAX, [S53]
 	CALL F19 ; ztype
 	JMP  RETfromEBP
 
-F54: ; t8
+F54: ; t7
+	CALL RETtoEBP
+	PUSH EAX
+	MOV  EAX, 7
+	CALL F44 ; t0
+	PUSH EAX
+	LEA  EAX, [S55]
+	CALL F19 ; ztype
+	JMP  RETfromEBP
+
+F56: ; t8
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 8
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 3344
 	CALL F33 ; .
@@ -508,11 +538,11 @@ F54: ; t8
 	POP  EAX
 	JMP  RETfromEBP
 
-F55: ; t9
+F57: ; t9
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 9
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 999
 	PUSH EAX
@@ -528,19 +558,19 @@ F55: ; t9
 	CALL F33 ; .
 	JMP  RETfromEBP
 
-F56: ; t10
+F58: ; t10
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 10
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 103
 	MOV  EBX, EAX
-	LEA  EAX, [I37] ; x
+	LEA  EAX, [I39] ; x
 	MOV  [EAX], BL
 	POP  EAX
 	PUSH EAX
-	LEA  EAX, [I37] ; x
+	LEA  EAX, [I39] ; x
 	MOV  AL, [EAX]
 	AND  EAX, 0xFF
 	PUSH EAX
@@ -548,11 +578,11 @@ F56: ; t10
 	CALL F2 ; emit
 	JMP  RETfromEBP
 
-F57: ; t11
+F59: ; t11
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 11
-	CALL F42 ; t0
+	CALL F44 ; t0
 	PUSH EAX
 	MOV  EAX, 115
 	CALL F2 ; emit
@@ -561,22 +591,22 @@ F57: ; t11
 	CALL F22 ; Mil
 	PUSH EAX
 	CALL F28 ; (.)
-Tgt58:
+Tgt60:
 	DEC  EAX
-	JNZ  Tgt58
+	JNZ  Tgt60
 	PUSH EAX
 	MOV  EAX, 101
 	CALL F2 ; emit
 	JMP  RETfromEBP
 
-F59: ; t12
+F61: ; t12
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 12
-	CALL F42 ; t0
+	CALL F44 ; t0
 	ADD  EDI, 24
 	PUSH EAX
-	LEA  EAX, [S60]
+	LEA  EAX, [S62]
 	MOV  EBX, EAX
 	LEA  EAX, [EDI+12]
 	MOV  [EAX], EBX
@@ -600,42 +630,42 @@ F59: ; t12
 	SUB  EDI, 24
 	JMP  RETfromEBP
 
-F61: ; t999
+F63: ; t999
 	CALL RETtoEBP
 	PUSH EAX
-	LEA  EAX, [S62]
+	LEA  EAX, [S64]
 	CALL F19 ; ztype
 	CALL F23 ; cr
 	CALL F1 ; bye
 	JMP  RETfromEBP
 
-F63: ; main
+F65: ; main
 	CALL RETtoEBP
 	PUSH EAX
 	MOV  EAX, 10
 	MOV  [I3], EAX
 	POP  EAX
-	CALL F43 ; t1
-	CALL F45 ; t2
+	CALL F45 ; t1
+	CALL F47 ; t2
 	PUSH EAX
 	MOV  EAX, 0
-	CALL F47 ; t4
+	CALL F49 ; t4
 	PUSH EAX
 	MOV  EAX, 1
-	CALL F47 ; t4
-	CALL F49 ; t5
-	CALL F50 ; t6
-	CALL F52 ; t7
-	CALL F54 ; t8
-	CALL F55 ; t9
-	CALL F56 ; t10
-	CALL F57 ; t11
-	CALL F59 ; t12
+	CALL F49 ; t4
+	CALL F51 ; t5
+	CALL F52 ; t6
+	CALL F54 ; t7
+	CALL F56 ; t8
+	CALL F57 ; t9
+	CALL F58 ; t10
+	CALL F59 ; t11
+	CALL F61 ; t12
 	CALL F23 ; cr
-	CALL F61 ; t999
+	CALL F63 ; t999
 	CALL F23 ; cr
 	PUSH EAX
-	LEA  EAX, [S64]
+	LEA  EAX, [S66]
 	CALL F19 ; ztype
 	JMP  RETfromEBP
 
@@ -643,21 +673,21 @@ F63: ; main
 section '.data' data readable writeable
 ;---------------------------------------------
 
-; code: 10000 entries, 496 used
+; code: 10000 entries, 523 used
 ; heap: 5000 bytes, 76 used
-; symbols: 1000 entries, 65 used
-S44      db "hello world!", 0
-S46      db "hello", 0
-S51      db "(should print 666)", 0
-S53      db "test ztype ...", 0
-S60      db "-L3-", 0
-S62      db "bye", 0
-S64      db "still here? s", 0
+; symbols: 1000 entries, 67 used
+S46      db "hello world!", 0
+S48      db "hello", 0
+S53      db "(should print 666)", 0
+S55      db "test ztype ...", 0
+S62      db "-L3-", 0
+S64      db "bye", 0
+S66      db "still here? s", 0
 I3       rd   1 ; base
 I26      rd   3 ; buf
 I27      rd   1 ; #n
-I37      rd   1 ; x
-I65      rd   1 ; pv
+I39      rd   1 ; x
+I67      rd   1 ; pv
 A        rd   1
 rstk     rd 256
 locs     rd 500
