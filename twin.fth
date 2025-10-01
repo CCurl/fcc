@@ -1,5 +1,4 @@
 // Test file for the Windows version
-// NOTE: this is nearly identical to tlin.fth except emit and bye are primitives
 
 var base 
 

@@ -1,8 +1,6 @@
-# FCC Documentation
+# FCC Documentation (Forth Compiler written in C)
 
-## Overview
-
-**FCC (Forth Compiler)** is a minimal and pedagogical Forth compiler written in a single C file that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for programs.
+FCC is a minimal and pedagogical Forth compiler written in a single C file that generates assembly code for the FASM assembler. It supports a Forth-like syntax and serves as both a learning tool for compiler construction and a functional compiler for programs.
 
 ## File Structure
 
@@ -67,6 +65,7 @@ typedef struct {
     char name[23];      // Symbol name
     char asmName[8];    // Generated assembly name
     int sz;             // Size in bytes
+    char *str;          // String pointer
 } SYM_T;
 ```
 
@@ -231,7 +230,7 @@ AND OR XOR          // Bitwise operations
     xor ebx, ebx
     mov eax, 1
     int 0x80
-  end-code
+end-code
 ;
 ```
 
@@ -254,18 +253,6 @@ AND OR XOR          // Bitwise operations
 - Enhanced optimization with iterative peephole passes
 - Uses EDI to point to a `locs` array for local storage
 - A-register variable for quick access operations
-
-## Usage
-
-### Command Line
-```bash
-make fcc                       # Compile the fcc program (creates fcl executable)
-./fcl > output.asm             # Compile fcc.fth to assembly code (default)
-./fcl myfile.fth > output.asm  # Compile specific file to assembly code
-fasm output.asm program        # Assemble to executable using FASM
-chmod +x program               # Make the program executable
-./program                      # Run the program
-```
 
 ### Error Handling
 - Syntax errors show line number, column, and source context
@@ -308,7 +295,7 @@ var (limit) 100 allot
 2. **IRL Generation** - Parse declarations and generate intermediate representation
 3. **Iterative Optimization** - Repeatedly perform peephole optimizations until no changes
 4. **Code Generation** - Output assembly with startup code and runtime support
-5. **Symbol Output** - Generate variable and string declarations with proper sizing in data section
+5. **Symbol Output** - Generate variable declarations with proper sizing in data section
 
 ## Limitations and Features
 

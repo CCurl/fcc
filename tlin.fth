@@ -1,14 +1,12 @@
 // Test file for the Linux version
-// NOTE: this is nearly identical to twin.fth except emit and bye are sys calls
 
-// output a single character to stdout
+// Output a single character to stdout
 // NOS: the char, TOS, addr to store the char
-// This uses the Linux syscall #4 - write
-// EAX = 4: syscall number
+// EAX = 4: syscall number (write)
 // EBX = 1: stdout
 // ECX = address of buffer with chars to output
 // EDX is the number of chars to write
-: outc ( c a-- ) code
+: outChar ( c a-- ) code
 	pop ebx
 	mov [eax], bl
 	mov edx, 1
@@ -21,7 +19,28 @@ end-code
 ;
 
 var _em
-: emit  ( c-- ) _em outc ;
+: emit  ( c-- ) _em outChar ;
+
+// Read a single character from stdin
+// Needs CR to complete
+// EAX = 3: syscall number (read)
+// EBX = 1: stdout
+// ECX = address of buffer to store the char
+// EDX is the number of chars to read
+: inKey ( buf--c ) code
+	mov ebx, 0
+	mov ecx, eax
+	mov edx, 1
+	mov eax, 3
+	push ecx
+	int 0x80
+	pop ecx
+	movzx eax, byte [ecx]
+end-code
+;
+
+var _k
+: key ( -- c ) _k inKey ;
 
 : bye code
 	mov eax, 1
@@ -38,8 +57,8 @@ end-code
 : c@a+  c@a  a+ ;			: c!a+  c!a  a+ ;
 : c@a-  c@a  a- ;			: c!a-  c!a  a- ;
 
-: +L +locs a@ l0 ! ;
-: -L l0 @  a! -locs ;
+: +L +locs  a@ l0 ! ;
+: -L l0 @  a!  -locs ;
 
 : 0= if 0 exit then 1 ;
 : ztype ( a-- ) +L  a!
@@ -70,11 +89,10 @@ var #n
 	a@ 1+ ztype -L ;
 : . (.) space ;
 
-: strlen ( a -- n )
-	dup c@ 0= if drop 0 exit then
-	+locs  a@ l3 !  dup a! l1 !
-	begin c@a+ while
-	a@ l1 @ - 1-  l3 @ a!  -locs ;
+: strlen ( a--n )
+	+locs  a@ l0 !  a!
+	0  begin  1+  a@ c@  a+  while
+	1-  l0 @ a!  -locs ;
 
 var x
 : x++  x @ 1+ x ! ;
@@ -83,7 +101,7 @@ var x
 : t0 cr 't' emit . ;
 : t1   1 t0 s" hello world!" ztype ;
 : t2   2 t0 1234 s" hello" strlen . . ;
-: t3   3 t0 'a' _em outc ;
+: t3   3 t0 ( key . ) ;
 : t4   4 t0 0= if 'n' emit exit then 'y' emit ;
 : t5   5 t0 buf a! 'h' c!a+ 'i' c!a+ 0 c!a buf ztype space ;
 : t6   6 t0 666 222 ->reg2  333 ->reg3  444 ->reg4 . s" (should print 666)" ztype ;
@@ -99,4 +117,4 @@ var x
 	10 base !
 	t1 t2 t3 0 t4 1 t4 t5 t6 t7 t8 t9 t10 t11 t12
 	cr t999 cr
-	s" still here? s" ztype ;
+	s" still here?" ztype ;

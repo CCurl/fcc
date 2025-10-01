@@ -7,3 +7,6 @@ Release/
 fcc.vcxproj.user
 tlin
 twin.exe
+fcl
+!binaries/fcl
+!binaries/fcw.exe
