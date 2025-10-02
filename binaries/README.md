@@ -12,6 +12,8 @@ FCC is a minimal and pedagogical Forth compiler written in a single C file that 
 ## Files
 
 - **fcc.c**: The Forth compiler source code
+- **binaries/fcl**:  The Forth compiler for Linux
+- **binaries/fcw.exe**:  The Forth compiler for Windows
 
 ## Architecture
 
@@ -30,9 +32,9 @@ The compiler follows a streamlined three-phase approach:
 
 ### Linux
 - There is a Makefile.
+- This is a 32-bit system, so only the 32-bit configuration is supported.
 - `make` creates a program named `fcl`.
 - `fcl` is the Forth Compiler for Linux.
-- This is a 32-bit system, so only the 32-bit configuration is supported.
 
 ## Building a program using the FCL/FCW compiler
 - Run `fcw` or `fcl` depending on if you are running Windows or Linux.
@@ -87,8 +89,6 @@ typedef struct {
   - Supports negative numbers with `-` prefix
 
 ### 2. Symbol Management
-
-#### Symbol Operations
 - **`findSymbol(char *name, char type)`** - Locates symbol by name and type
 - **`addSymbol(char *name, char type)`** - Adds new symbol to table
 
@@ -132,7 +132,7 @@ The compiler uses an internal instruction set:
 
 **Special:**
 - `LIT` - Literal values
-- `PLEQ` - Plus-equals operation (`+!`)
+- `PLEQ` - Plus-store operation (`+!`)
 - `INCTOS`, `DECTOS` - Increment/decrement top of stack
 - `CODE` - Embed straight FASM code into assembly file
 
@@ -241,7 +241,7 @@ end-code
 **Linux (32-bit):**
 - ELF executable format
 - No external library dependencies
-- Direct system calls via `sys` command
+- Direct system calls via `sys` command or `code`
 - Custom function call convention using EBP stack
 
 **Windows (32-bit):**
@@ -261,23 +261,24 @@ end-code
 
 ### Example Program
 ```forth
-var (counter)
-var (limit) 100 allot
+: c@a+ a@ c@ a+ ;
 
-// n = length of string at address a
+// strlen: n = length of string at address a
 : strlen ( a--n )
 	+locs  a@ l0 !  a!
-	0  begin  1+  a@ c@  a+  while
+	0  begin  1+  c@a+  while
 	1-  l0 @ a!  -locs ;
 
-: mil ( n--m ) 1000 dup * * ;
-
+var (counter)
 : counter  ( --n )  (counter) @ ;
 : counter! (n -- )  (counter) ! ;
 : increment counter 1+ counter! ;
 
+var (limit)
 : limit  ( --n )  (limit) @ ;
 : limit! (n -- )  (limit) ! ;
+
+: mil ( n--m ) 1000 dup * * ;
 
 : main
   0 counter!
@@ -314,7 +315,7 @@ var (limit) 100 allot
 - A-register variable for optimized frequent access
 - Multi-base number literals (binary, decimal, hex, character)
 - Iterative optimization passes for better code generation
-- Compact, self-contained compiler
+- Compact, single-file, self-contained compiler
 - Clean separation of IRL generation and code emission
 - Stack-based execution model with register and pointer access
 - Enhanced error reporting with stderr output
