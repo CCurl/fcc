@@ -120,9 +120,9 @@ int addSymbol(char *name, char type) {
 //---------------------------------------------------------------------------
 // IRL
 enum {
-    NOTHING, VARADDR, LIT, LOADSTR, DEF
+    NOTHING, VARADDR, LIT, LOADSTR, DEF, LITB
     , STORE, FETCH, CSTORE, CFETCH, STOREA, FETCHA
-    , ADD, ADDIMM, SUB, MULT, DIVIDE, DIVMOD
+    , ADD, ADDIMM, SUB, SUBIMM, MULT, DIVIDE, DIVMOD
     , AND, OR, XOR, LT, GT, EQ, NEQ, PLEQ, DECTOS, INCTOS
     , POPA, PUSHA, SWAP, SP4, JMP, JMPZ, JMPNZ, TARGET
     , CALL, RETURN, MOVAB, MOVAC, MOVAD, SYS, POPB, TESTA
@@ -135,6 +135,13 @@ int optimizeIRL() {
         int op=opcodes[i], op1=opcodes[i+1], op2=opcodes[i+2];
         if ((op == PUSHA) && (op1 == POPA)) {
             opcodes[i] = opcodes[i+1] = NOTHING;
+        }
+        if ((op == LIT) && (op1 == MOVAB)) {
+            opcodes[i] = LITB;
+            opcodes[i+1] = NOTHING;
+        }
+        if ((op == PUSHA) && (op1 == LITB) && (op2 == POPA)) {
+            opcodes[i] = opcodes[i+2] = NOTHING;
         }
         if ((op == POPA) && (op1 == PUSHA) && (op2 == LIT)) {
             opcodes[i] = opcodes[i+1] = NOTHING;
@@ -158,6 +165,10 @@ int optimizeIRL() {
         if ((op == MOVAB) && (op1 == LIT) && (op2 == ADD)) {
             opcodes[i+1] = ADDIMM;
             opcodes[i] = opcodes[i+2] = NOTHING;
+        }
+        if ((op == LITB) && (op1 == SUB)) {
+            opcodes[i] = SUBIMM;
+            opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
             opcodes[i] = opcodes[i+2] = NOTHING;
@@ -189,6 +200,7 @@ void genCode() {
         switch (op) {
             case VARADDR:  printf("\n\tLEA  EAX, [%s] ; %s", an, vn);
             BCASE LIT:     printf("\n\tMOV  EAX, %d", a1);
+            BCASE LITB:    printf("\n\tMOV  EBX, %d", a1);
             BCASE PUSHA:   printf("\n\tPUSH EAX"); // DUP
             BCASE POPA:    printf("\n\tPOP  EAX"); // DROP
             BCASE POPB:    printf("\n\tPOP  EBX");
@@ -206,7 +218,8 @@ void genCode() {
             BCASE INCTOS:  printf("\n\tINC  EAX");
             BCASE ADD:     printf("\n\tADD  EAX, EBX");
             BCASE ADDIMM:  printf("\n\tADD  EAX, %d", a1);
-            BCASE SUB:     printf("\n\tXCHG EAX, EBX\n\tSUB  EAX, EBX");
+            BCASE SUB:     printf("\n\tSUB  EAX, EBX");
+            BCASE SUBIMM:  printf("\n\tSUB  EAX, %d", a1);
             BCASE MULT:    printf("\n\tIMUL EAX, EBX");
             BCASE DIVIDE:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX");
             BCASE DIVMOD:  printf("\n\tXCHG EAX, EBX\n\tCDQ\n\tIDIV EBX\n\tPUSH EDX");
@@ -300,7 +313,7 @@ void statement() {
     else if (accept(";"))      { gen(RETURN); }
     else if (accept("+!"))     { gen(POPB); gen(PLEQ); gen(POPA); }
     else if (accept("+"))      { gen(POPB); gen(ADD); }
-    else if (accept("-"))      { gen(POPB); gen(SUB); }
+    else if (accept("-"))      { gen(MOVAB); gen(POPA); gen(SUB); }
     else if (accept("*"))      { gen(POPB); gen(MULT); }
     else if (accept("/mod"))   { gen(POPB); gen(DIVMOD); }
     else if (accept("/"))      { gen(POPB); gen(DIVIDE); }
