@@ -131,17 +131,22 @@ enum {
 
 int optimizeIRL() {
     int changes = 0;
+    // return 0;
     for (int i = 1; i <= here; i++) {
-        int op=opcodes[i], op1=opcodes[i+1], op2=opcodes[i+2];
+        int op=opcodes[i], op1=opcodes[i+1], op2=opcodes[i+2], op3=opcodes[i+3], op4=opcodes[i+4];
         if ((op == PUSHA) && (op1 == POPA)) {
             opcodes[i] = opcodes[i+1] = NOTHING;
         }
-        if ((op == LIT) && (op1 == MOVAB)) {
-            opcodes[i] = LITB;
-            opcodes[i+1] = NOTHING;
-        }
-        if ((op == PUSHA) && (op1 == LITB) && (op2 == POPA)) {
-            opcodes[i] = opcodes[i+2] = NOTHING;
+        // if ((op == LIT) && (op1 == MOVAB)) {
+        //     opcodes[i] = LITB;
+        //     opcodes[i+1] = NOTHING;
+        // }
+        // if ((op == PUSHA) && (op1 == LITB) && (op2 == POPA)) {
+        //     opcodes[i] = opcodes[i+2] = NOTHING;
+        // }
+        if ((op == PUSHA) && (op1 == LIT) && (op2 == MOVAB) && (op3 == POPA) && (op4 == SUB)) {
+            opcodes[i+1] = SUBIMM;
+            opcodes[i] = opcodes[i+2] = opcodes[i+3] = opcodes[i+4] = NOTHING;
         }
         if ((op == POPA) && (op1 == PUSHA) && (op2 == LIT)) {
             opcodes[i] = opcodes[i+1] = NOTHING;
@@ -151,8 +156,8 @@ int optimizeIRL() {
             opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op2 == POPB)) {
-            opcodes[i] = MOVAB;
-            opcodes[i+2] = NOTHING;
+             opcodes[i] = MOVAB;
+             opcodes[i+2] = NOTHING;
         }
         if ((op == MOVAB) && (op1 == VARADDR) && (op2 == STORE)) {
             opcodes[i+1] = STOREA;
@@ -165,10 +170,6 @@ int optimizeIRL() {
         if ((op == MOVAB) && (op1 == LIT) && (op2 == ADD)) {
             opcodes[i+1] = ADDIMM;
             opcodes[i] = opcodes[i+2] = NOTHING;
-        }
-        if ((op == LITB) && (op1 == SUB)) {
-            opcodes[i] = SUBIMM;
-            opcodes[i+1] = NOTHING;
         }
         if ((op == PUSHA) && (op1 == TESTA) && (op2 == POPA)) {
             opcodes[i] = opcodes[i+2] = NOTHING;

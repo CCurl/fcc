@@ -61,7 +61,7 @@ var x
 : t8   8 t0 3344 . -3344 . $1234 . 1234 #16 base ! . #10 base ! ;
 : t9   9 t0 999 123 100 /mod . . . ;
 : t10 10 t0 'g' x c! x c@ dup . emit ;
-: t11 11 t0 's' emit 1000 Mil dup (.) begin 1- dup while 'e' emit ;
+: t11 11 t0 's' emit 999 Mil dup (.) begin 1- dup while 'e' emit ;
 : t12 12 t0 +locs s" -L3-" l3 ! +locs 17 l3 ! l3 @ . -locs l3 @ ztype -locs ;
 : t999 s" bye" ztype cr bye ;
 

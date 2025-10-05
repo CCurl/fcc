@@ -184,7 +184,8 @@ Tgt21:
 F22: ; Mil
 	CALL RETtoEBP
 	PUSH EAX
-	MOV  EBX, 1000
+	MOV  EAX, 1000
+	MOV  EBX, EAX
 	IMUL EAX, EBX
 	POP  EBX
 	IMUL EAX, EBX
@@ -236,7 +237,8 @@ F28: ; (.)
 	POP  EAX
 	JZ   Tgt29
 	PUSH EAX
-	MOV  EBX, 1
+	MOV  EAX, 1
+	MOV  EBX, EAX
 	LEA  EAX, [I27] ; #n
 	MOV  [EAX], BL
 	POP  EAX
@@ -440,7 +442,8 @@ F49: ; t6
 	PUSH EAX
 	MOV  EAX, 666
 	PUSH EAX
-	MOV  EBX, 222
+	MOV  EAX, 222
+	MOV  EBX, EAX
 	MOV  EAX, 333
 	MOV  ECX, EAX
 	MOV  EAX, 444
@@ -479,15 +482,13 @@ F53: ; t8
 	PUSH EAX
 	MOV  EAX, 1234
 	PUSH EAX
-	MOV  EBX, 16
-	LEA  EAX, [I3] ; base
-	MOV  [EAX], EBX
+	MOV  EAX, 16
+	MOV  [I3], EAX
 	POP  EAX
 	CALL F33 ; .
 	PUSH EAX
-	MOV  EBX, 10
-	LEA  EAX, [I3] ; base
-	MOV  [EAX], EBX
+	MOV  EAX, 10
+	MOV  [I3], EAX
 	POP  EAX
 	JMP  RETfromEBP
 
@@ -499,7 +500,8 @@ F54: ; t9
 	PUSH EAX
 	MOV  EAX, 999
 	PUSH EAX
-	MOV  EBX, 123
+	MOV  EAX, 123
+	MOV  EBX, EAX
 	MOV  EAX, 100
 	XCHG EAX, EBX
 	CDQ
@@ -516,7 +518,8 @@ F55: ; t10
 	MOV  EAX, 10
 	CALL F41 ; t0
 	PUSH EAX
-	MOV  EBX, 103
+	MOV  EAX, 103
+	MOV  EBX, EAX
 	LEA  EAX, [I36] ; x
 	MOV  [EAX], BL
 	POP  EAX
@@ -538,7 +541,7 @@ F56: ; t11
 	MOV  EAX, 115
 	CALL F2 ; emit
 	PUSH EAX
-	MOV  EAX, 1000
+	MOV  EAX, 999
 	CALL F22 ; Mil
 	PUSH EAX
 	CALL F28 ; (.)
@@ -564,7 +567,8 @@ F58: ; t12
 	POP  EAX
 	ADD  EDI, 24
 	PUSH EAX
-	MOV  EBX, 17
+	MOV  EAX, 17
+	MOV  EBX, EAX
 	LEA  EAX, [EDI+12]
 	MOV  [EAX], EBX
 	POP  EAX
@@ -592,9 +596,8 @@ F60: ; t999
 F62: ; main
 	CALL RETtoEBP
 	PUSH EAX
-	MOV  EBX, 10
-	LEA  EAX, [I3] ; base
-	MOV  [EAX], EBX
+	MOV  EAX, 10
+	MOV  [I3], EAX
 	POP  EAX
 	CALL F42 ; t1
 	CALL F44 ; t2
@@ -624,7 +627,7 @@ F62: ; main
 section '.data' data readable writeable
 ;---------------------------------------------
 
-; code: 10000 entries, 482 used
+; code: 10000 entries, 485 used
 ; heap: 5000 bytes, 76 used
 ; symbols: 1000 entries, 64 used
 S43      db "hello world!", 0
