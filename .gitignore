@@ -1,4 +1,5 @@
 .vs
+.vscode
 fcc.vcxproj.user
 enc_temp_folder
 Debug/
