@@ -59,7 +59,7 @@ void next_ch() {
         if (is_eof) { ch = EOF; return; }
     }
     ch = cur_line[cur_off++];
-    if (ch == 9) { ch = cur_line[cur_off - 1] = 32; }
+    if (ch == 9) { ch = cur_line[cur_off-1] = 32; }
 }
 
 int checkNumber(char *w, int base) {
@@ -96,7 +96,7 @@ start:
 }
 
 //---------------------------------------------------------------------------
-// Symbols - 'I' = INT, 'F' = Function, 'T' = Target
+// Symbols - 'I' = INT, 'F' = Function, 'S' = String, 'T' = Target
 int findSymbol(char *name, char type) {
     for (int i = numSymbols; 0 < i; i--) {
         if (strEq(symbols[i].name, name) && (symbols[i].type == type)) { return i; }
@@ -137,13 +137,6 @@ int optimizeIRL() {
         if ((op == PUSHA) && (op1 == POPA)) {
             opcodes[i] = opcodes[i+1] = NOTHING;
         }
-        // if ((op == LIT) && (op1 == MOVAB)) {
-        //     opcodes[i] = LITB;
-        //     opcodes[i+1] = NOTHING;
-        // }
-        // if ((op == PUSHA) && (op1 == LITB) && (op2 == POPA)) {
-        //     opcodes[i] = opcodes[i+2] = NOTHING;
-        // }
         if ((op == PUSHA) && (op1 == LIT) && (op2 == MOVAB) && (op3 == POPA) && (op4 == SUB)) {
             opcodes[i+1] = SUBIMM;
             opcodes[i] = opcodes[i+2] = opcodes[i+3] = opcodes[i+4] = NOTHING;
@@ -155,7 +148,7 @@ int optimizeIRL() {
             opcodes[i] = MOVAB;
             opcodes[i+1] = NOTHING;
         }
-        if ((op == PUSHA) && (op2 == POPB)) {
+        if ((op == PUSHA) && (op1 != PUSHA) && (op2 == POPB)) {
              opcodes[i] = MOVAB;
              opcodes[i+2] = NOTHING;
         }
