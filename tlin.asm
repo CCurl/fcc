@@ -573,7 +573,6 @@ F61: ; t11
 Tgt62:
 	DEC  EAX
 	JNZ  Tgt62
-	PUSH EAX
 	MOV  EAX, 101
 	CALL F3 ; emit
 	JMP  RETfromEBP
@@ -652,7 +651,7 @@ F67: ; main
 ;================== data =====================
 segment readable writeable
 
-; code: 10000 entries, 499 used
+; code: 10000 entries, 498 used
 ; heap: 5000 bytes, 305 used
 ; symbols: 1000 entries, 68 used
 S47      db "hello world!", 0
